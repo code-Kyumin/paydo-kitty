@@ -6,7 +6,7 @@ from pptx.dml.color import RGBColor
 import io
 import re
 
-def split_text_to_slides(text, max_lines=4):
+def split_text_to_slides(text, max_lines=4, max_chars_per_line=60):
     paragraphs = text.strip().split("\n")
     slides = []
     current_slide = []
@@ -16,8 +16,20 @@ def split_text_to_slides(text, max_lines=4):
         sentences = re.split(r'(?<=[.!?]) +', para.strip())
         for sentence in sentences:
             if sentence:
-                current_slide.append(sentence.strip())
-                if len(current_slide) >= max_lines:
+                words = sentence.split(' ')
+                temp_line = []
+                for word in words:
+                    temp_line_with_space = ' '.join(temp_line + [word])
+                    if len(temp_line_with_space) <= max_chars_per_line:
+                        temp_line.append(word)
+                    else:
+                        if temp_line:
+                            current_slide.append(' '.join(temp_line))
+                        current_slide.append(word)
+                        temp_line = []
+                if temp_line:
+                    current_slide.append(' '.join(temp_line))
+                if len(current_slide) >= max_lines or (len(current_slide) > 0 and current_slide[-1].endswith(('.', '!', '?'))):
                     slides.append(current_slide)
                     current_slide = []
     if current_slide:
@@ -37,7 +49,7 @@ def create_ppt(slides):
         tf = textbox.text_frame
         tf.vertical_anchor = MSO_VERTICAL_ANCHOR.TOP
         tf.word_wrap = True
-        tf.auto_size = False  # Changed from None to False
+        tf.auto_size = False
         tf.clear()
 
         for i, line in enumerate(lines):
@@ -66,6 +78,7 @@ st.set_page_config(page_title="Paydo Kitty", layout="centered")
 st.title("📄 Paydo Kitty - 텍스트를 PPT로 변환")
 
 text_input = st.text_area("대본을 입력하세요:", height=300)
+st.caption("주의: 긴 텍스트는 예기치 않게 잘릴 수 있습니다. 가능하면 짧게 나누어 입력하거나, 줄바꿈을 직접 넣어주세요.")
 
 if st.button("PPT 만들기") and text_input.strip():
     slides = split_text_to_slides(text_input)
