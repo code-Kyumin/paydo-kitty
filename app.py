@@ -6,7 +6,7 @@ from pptx.dml.color import RGBColor
 import io
 import re
 
-def split_text_to_slides(text, max_lines=4, max_chars_per_line=80):  # Increased max_chars_per_line
+def split_text_to_slides(text, max_lines=4, max_chars_per_line=80):
     paragraphs = text.strip().split("\n")
     slides = []
     current_slide = []
@@ -36,29 +36,34 @@ def split_text_to_slides(text, max_lines=4, max_chars_per_line=80):  # Increased
     return slides
 
 def create_ppt(slides):
-    prs = Presentation()
-    prs.slide_width = Inches(13.33)  # 16:9
-    prs.slide_height = Inches(7.5)
+    try:
+        prs = Presentation("template.pptx")  # Load the template
+    except FileNotFoundError:
+        print("Error: template.pptx not found. Using default presentation.")
+        prs = Presentation()  # If template not found, create a blank one
+        prs.slide_width = Inches(13.33)
+        prs.slide_height = Inches(7.5)
 
     for idx, lines in enumerate(slides, 1):
-        slide = prs.slides.add_slide(prs.slide_layouts[6])
+        if len(prs.slides) <= idx - 1:
+            slide = prs.slides.add_slide(prs.slide_layouts[6])
+        else:
+            slide = prs.slides[idx - 1] # Use existing slide from template
 
-        # 본문 텍스트 박스
-        textbox = slide.shapes.add_textbox(Inches(0.5), Inches(0.3), Inches(12.33), Inches(6.2)) # Keep original size
-        tf = textbox.text_frame
-        tf.vertical_anchor = MSO_VERTICAL_ANCHOR.TOP
-        tf.word_wrap = True
-        tf.auto_size = False  # Keep auto_size as False
-        tf.clear()
-
-        for i, line in enumerate(lines):
-            p = tf.add_paragraph() if i > 0 else tf.paragraphs[0]
-            p.text = line
-            p.font.size = Pt(54)
-            p.font.name = '맑은 고딕'
-            p.font.bold = True
-            p.font.color.rgb = RGBColor(0, 0, 0)
-            p.alignment = PP_ALIGN.CENTER
+        # 본문 텍스트 박스 채우기 (Assuming it's the first shape)
+        if slide.shapes:
+            textbox = slide.shapes[0]
+            if textbox.has_text_frame:
+                tf = textbox.text_frame
+                tf.clear()
+                for i, line in enumerate(lines):
+                    p = tf.add_paragraph() if i > 0 else tf.paragraphs[0]
+                    p.text = line
+                    p.font.size = Pt(54)
+                    p.font.name = '맑은 고딕'
+                    p.font.bold = True
+                    p.font.color.rgb = RGBColor(0, 0, 0)
+                    p.alignment = PP_ALIGN.CENTER
 
         # 우측 하단 페이지 번호
         footer_box = slide.shapes.add_textbox(Inches(12.0), Inches(7.0), Inches(1), Inches(0.4))
@@ -77,7 +82,7 @@ st.set_page_config(page_title="Paydo Kitty", layout="centered")
 st.title("📄 Paydo Kitty - 텍스트를 PPT로 변환")
 
 text_input = st.text_area("대본을 입력하세요:", height=300)
-st.caption("주의: 긴 텍스트는 예기치 않게 잘릴 수 있습니다. 가능하면 짧게 나누어 입력하거나, 줄바꿈을 직접 넣어주세요.")  # Add user guidance
+st.caption("주의: 긴 텍스트는 예기치 않게 잘릴 수 있습니다. 가능하면 짧게 나누어 입력하거나, 줄바꿈을 직접 넣어주세요.")
 
 if st.button("PPT 만들기") and text_input.strip():
     slides = split_text_to_slides(text_input)
