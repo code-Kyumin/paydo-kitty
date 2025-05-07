@@ -6,7 +6,7 @@ from pptx.dml.color import RGBColor
 import io
 import re
 
-def split_text_to_slides(text, max_lines=4, max_chars_per_line=50):
+def split_text_to_slides(text, max_lines=4, max_chars_per_line=80):  # Increased max_chars_per_line
     paragraphs = text.strip().split("\n")
     slides = []
     current_slide = []
@@ -22,7 +22,7 @@ def split_text_to_slides(text, max_lines=4, max_chars_per_line=50):
                     temp_line_with_word = ' '.join(temp_line + [word])
                     if len(temp_line_with_word) <= max_chars_per_line:
                         temp_line.append(word)
-                    elif len(temp_line) == 0:  # If it's the first word and too long, add it anyway
+                    elif len(temp_line) == 0:
                         current_slide.append(word)
                     else:
                         current_slide.append(' '.join(temp_line).strip())
@@ -44,11 +44,11 @@ def create_ppt(slides):
         slide = prs.slides.add_slide(prs.slide_layouts[6])
 
         # 본문 텍스트 박스
-        textbox = slide.shapes.add_textbox(Inches(0.5), Inches(0.3), Inches(12.33), Inches(6.2))
+        textbox = slide.shapes.add_textbox(Inches(0.5), Inches(0.3), Inches(12.33), Inches(6.2)) # Keep original size
         tf = textbox.text_frame
         tf.vertical_anchor = MSO_VERTICAL_ANCHOR.TOP
         tf.word_wrap = True
-        tf.auto_size = False # Changed from None to False
+        tf.auto_size = False  # Keep auto_size as False
         tf.clear()
 
         for i, line in enumerate(lines):
@@ -77,6 +77,7 @@ st.set_page_config(page_title="Paydo Kitty", layout="centered")
 st.title("📄 Paydo Kitty - 텍스트를 PPT로 변환")
 
 text_input = st.text_area("대본을 입력하세요:", height=300)
+st.caption("주의: 긴 텍스트는 예기치 않게 잘릴 수 있습니다. 가능하면 짧게 나누어 입력하거나, 줄바꿈을 직접 넣어주세요.")  # Add user guidance
 
 if st.button("PPT 만들기") and text_input.strip():
     slides = split_text_to_slides(text_input)
