@@ -2,7 +2,7 @@
 import streamlit as st
 from pptx import Presentation
 from pptx.util import Inches, Pt
-from pptx.enum.text import PP_ALIGN
+from pptx.enum.text import PP_ALIGN, MSO_VERTICAL_ANCHOR
 from pptx.dml.color import RGBColor
 import re
 import textwrap
@@ -50,7 +50,7 @@ def create_ppt(slide_chunks):
         textbox = slide.shapes.add_textbox(left, top, width, height)
         tf = textbox.text_frame
         tf.text = ""
-        tf.vertical_anchor = PP_ALIGN.MIDDLE
+        tf.vertical_anchor = MSO_VERTICAL_ANCHOR.MIDDLE
 
         for sentence in chunk:
             p = tf.add_paragraph()
