@@ -51,4 +51,27 @@ def create_ppt(slides):
         footer_p = footer_frame.paragraphs[0]
         footer_p.font.size = Pt(18)
         footer_p.font.name = '맑은 고딕'
-        footer_p._
+        footer_p.font.color.rgb = RGBColor(128, 128, 128)
+        footer_p.alignment = PP_ALIGN.RIGHT
+
+    return prs
+
+st.set_page_config(page_title="Paydo Kitty", layout="centered")
+st.title("📄 Paydo Kitty - 텍스트를 PPT로 변환")
+
+text_input = st.text_area("대본을 입력하세요:", height=300)
+
+if st.button("PPT 만들기") and text_input.strip():
+    slides = split_text_to_slides(text_input)
+    ppt = create_ppt(slides)
+
+    ppt_io = io.BytesIO()
+    ppt.save(ppt_io)
+    ppt_io.seek(0)
+
+    st.download_button(
+        label="📥 PPT 다운로드",
+        data=ppt_io,
+        file_name="paydo_kitty_output.pptx",
+        mime="application/vnd.openxmlformats-officedocument.presentationml.presentation"
+    )
