@@ -8,7 +8,7 @@ import re
 import textwrap
 import io
 
-MAX_LINES_PER_SLIDE = 4
+MAX_LINES_PER_SLIDE = 6
 CHARS_PER_LINE = 35
 
 def split_into_sentences(text):
@@ -38,24 +38,26 @@ def chunk_sentences_by_line_limit(sentences, max_lines=MAX_LINES_PER_SLIDE):
 
 def create_ppt(slide_chunks):
     prs = Presentation()
+    prs.slide_width = Inches(13.33)  # 16:9 ratio width
+    prs.slide_height = Inches(7.5)   # 16:9 ratio height
     blank_layout = prs.slide_layouts[6]
 
     for chunk in slide_chunks:
         slide = prs.slides.add_slide(blank_layout)
         left = Inches(0.5)
-        top = Inches(1)
-        width = Inches(9)
-        height = Inches(5.5)
+        top = Inches(0.5)
+        width = Inches(12.33)
+        height = Inches(6.5)
 
         textbox = slide.shapes.add_textbox(left, top, width, height)
         tf = textbox.text_frame
         tf.text = ""
-        tf.vertical_anchor = MSO_VERTICAL_ANCHOR.MIDDLE
+        tf.vertical_anchor = MSO_VERTICAL_ANCHOR.TOP
 
         for sentence in chunk:
             p = tf.add_paragraph()
             p.text = sentence
-            p.font.size = Pt(48)
+            p.font.size = Pt(44)
             p.alignment = PP_ALIGN.CENTER
             p.font.name = 'Arial'
             p.font.color.rgb = RGBColor(0, 0, 0)
@@ -66,7 +68,7 @@ def create_ppt(slide_chunks):
     return ppt_io
 
 st.title("🐾 paydo kitty - 텍스트 → 프롬프트용 PPT 변환기")
-st.markdown("입력한 스크립트를 **문장 단위로 나눠**, 슬라이드당 최대 4줄로 구성된 PPT를 생성합니다.")
+st.markdown("입력한 스크립트를 **문장 단위로 나눠**, 슬라이드당 최대 6줄로 구성된 PPT를 생성합니다.")
 
 text_input = st.text_area("📝 스크립트를 입력하세요", height=300)
 
