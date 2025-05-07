@@ -37,13 +37,13 @@ def create_ppt(slides):
         tf = textbox.text_frame
         tf.vertical_anchor = MSO_VERTICAL_ANCHOR.TOP
         tf.word_wrap = True
-        tf.auto_size = None
+        tf.auto_size = False  # Changed from None to False
         tf.clear()
 
         for i, line in enumerate(lines):
             p = tf.add_paragraph() if i > 0 else tf.paragraphs[0]
             p.text = line
-            p.font.size = Pt(54)
+            p.font.size = Pt(54)  # 유지
             p.font.name = '맑은 고딕'
             p.font.bold = True
             p.font.color.rgb = RGBColor(0, 0, 0)
