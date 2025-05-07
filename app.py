@@ -22,6 +22,8 @@ def split_text_to_slides(text, max_lines=4, max_chars_per_line=50):
                     temp_line_with_word = ' '.join(temp_line + [word])
                     if len(temp_line_with_word) <= max_chars_per_line:
                         temp_line.append(word)
+                    elif len(temp_line) == 0:  # If it's the first word and too long, add it anyway
+                        current_slide.append(word)
                     else:
                         current_slide.append(' '.join(temp_line).strip())
                         temp_line = [word]
