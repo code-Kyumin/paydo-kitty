@@ -6,7 +6,7 @@ from pptx.dml.color import RGBColor
 import io
 import re
 
-def split_text_to_slides(text, max_lines=4):
+def split_text_to_slides(text, max_lines=4, max_chars_per_line=50):
     paragraphs = text.strip().split("\n")
     slides = []
     current_slide = []
@@ -19,12 +19,13 @@ def split_text_to_slides(text, max_lines=4):
                 words = sentence.split(' ')
                 temp_line = []
                 for word in words:
-                    if len(' '.join(temp_line + [word])) <= 50:  # Adjust character limit as needed
+                    temp_line_with_word = ' '.join(temp_line + [word])
+                    if len(temp_line_with_word) <= max_chars_per_line:
                         temp_line.append(word)
                     else:
-                        current_slide.append(' '.join(temp_line))
+                        current_slide.append(' '.join(temp_line).strip())
                         temp_line = [word]
-                current_slide.append(' '.join(temp_line))
+                current_slide.append(' '.join(temp_line).strip())
                 if len(current_slide) >= max_lines or (len(current_slide) > 0 and current_slide[-1].endswith(('.', '!', '?'))):
                     slides.append(current_slide)
                     current_slide = []
