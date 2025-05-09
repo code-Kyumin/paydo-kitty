@@ -7,6 +7,16 @@ from pptx.dml.color import RGBColor
 import io
 import re
 import textwrap
+import docx  # python-docx 라이브러리 추가
+
+
+# Word 파일에서 텍스트 추출하는 함수
+def extract_text_from_word(file):
+    doc = docx.Document(file)
+    full_text = []
+    for paragraph in doc.paragraphs:
+        full_text.append(paragraph.text)
+    return '\n'.join(full_text)
 
 # 문장이 차지할 줄 수 계산 (단어 잘림 방지)
 def sentence_line_count(sentence, max_chars_per_line=35):
@@ -115,7 +125,10 @@ def add_end_mark(slide):
 st.set_page_config(page_title="Paydo", layout="centered")
 st.title("🎬 Paydo 촬영 대본 PPT 자동 생성기")
 
-text_input = st.text_area("📝 촬영 대본을 입력하세요:", height=300, key="text_input_area")
+# Word 파일 업로드 기능 추가
+uploaded_file = st.file_uploader("📝 Word 파일 업로드", type=["docx"])
+
+text_input = st.text_area("또는 텍스트 직접 입력:", height=300, key="text_input_area")
 
 # UI에서 사용자로부터 직접 값을 입력받도록 슬라이더 추가
 max_lines_per_slide_input = st.slider("📄 슬라이드당 최대 줄 수:", min_value=1, max_value=10, value=5, key="max_lines_slider")
@@ -125,9 +138,17 @@ min_chars_per_line_input = st.slider("🔤 한 줄당 최소 글자 수:", min_v
 font_size_input = st.slider("🅰️ 폰트 크기:", min_value=10, max_value=60, value=54, key="font_size_slider")
 
 
-if st.button("🚀 PPT 만들기", key="create_ppt_button") and text_input.strip():
+if st.button("🚀 PPT 만들기", key="create_ppt_button"):
+    if uploaded_file is not None:
+        text = extract_text_from_word(uploaded_file)
+    elif text_input.strip():
+        text = text_input
+    else:
+        st.warning("Word 파일을 업로드하거나 텍스트를 입력하세요.")
+        st.stop()
+
     # 수정된 함수 호출
-    slide_texts = split_and_group_text(text_input,
+    slide_texts = split_and_group_text(text,
                                         max_lines_per_slide=max_lines_per_slide_input,
                                         min_chars_per_line=min_chars_per_line_input,
                                         max_chars_per_line_in_ppt=max_chars_per_line_ppt_input)
