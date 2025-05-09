@@ -33,7 +33,7 @@ def split_and_group_text(text, separate_pattern=None, max_lines_per_slide=5, min
     for sentence in sentences:
         sentence = sentence.strip()
         # 특정 패턴을 만족하는지 확인
-        if separate_pattern and re.match(separate_pattern, sentence):
+        if separate_pattern and re.match(sentence):
             # 현재 슬라이드에 내용이 있으면 추가하고 새 슬라이드 시작
             if current_slide_sentences:
                 slides.append("\n".join(current_slide_sentences))
@@ -68,7 +68,7 @@ def split_text(text):
     return [s.strip() for s in sentences if s.strip()]
 
 # PPT 생성 함수
-def create_ppt(slide_texts, max_chars_per_line_in_ppt=20, max_lines_per_slide=5):
+def create_ppt(slide_texts, max_chars_per_line_in_ppt=18, max_lines_per_slide=5, font_size=54):
     prs = Presentation()
     prs.slide_width = Inches(13.33)
     prs.slide_height = Inches(7.5)
@@ -88,7 +88,7 @@ def create_ppt(slide_texts, max_chars_per_line_in_ppt=20, max_lines_per_slide=5)
 
         # 실제 슬라이드 생성
         for data in slides_data:
-            create_slide(prs, data["text"], current_slide_idx, total_slides)
+            create_slide(prs, data["text"], current_slide_idx, total_slides, font_size)
             current_slide_idx += 1
 
         return prs
@@ -97,7 +97,7 @@ def create_ppt(slide_texts, max_chars_per_line_in_ppt=20, max_lines_per_slide=5)
         print(f"PPT 생성 중 오류 발생: {e}")
         return None
 
-def create_slide(prs, text, current_idx, total_slides):
+def create_slide(prs, text, current_idx, total_slides, font_size):
     """실제로 슬라이드를 생성하는 함수"""
 
     slide = prs.slides.add_slide(prs.slide_layouts[6])
@@ -110,7 +110,7 @@ def create_slide(prs, text, current_idx, total_slides):
     p = tf.paragraphs[0]
     p.text = text
 
-    p.font.size = Pt(54)
+    p.font.size = Pt(font_size)  # 폰트 크기 동적으로 설정
     p.font.name = 'Noto Color Emoji'  # 이모지 지원 글꼴 설정
     p.font.bold = True
     p.font.color.rgb = RGBColor(0, 0, 0)
@@ -166,8 +166,9 @@ separate_pattern_input = st.text_input("🔍 분리할 텍스트 패턴 (정규 
 # UI에서 사용자로부터 직접 값을 입력받도록 슬라이더 추가
 max_lines_per_slide_input = st.slider("📄 슬라이드당 최대 줄 수:", min_value=1, max_value=10, value=5, key="max_lines_slider")
 # PPT 텍스트 박스 내에서의 줄바꿈 글자 수 (실제 PPT에 표시될 때 적용)
-max_chars_per_line_ppt_input = st.slider("🔤 한 줄당 최대 글자 수 (PPT 표시):", min_value=10, max_value=100, value=35, key="max_chars_slider_ppt")
+max_chars_per_line_ppt_input = st.slider("🔤 한 줄당 최대 글자 수 (PPT 표시):", min_value=3, max_value=30, value=18, key="max_chars_slider_ppt")
 min_chars_per_line_input = st.slider("🔤 한 줄당 최소 글자 수:", min_value=1, max_value=10, value=4, key="min_chars_slider")
+font_size_input = st.slider("Aa 폰트 크기:", min_value=10, max_value=60, value=54, key="font_size_slider")
 
 
 if st.button("🚀 PPT 만들기", key="create_ppt_button") and text_input.strip():
@@ -176,7 +177,8 @@ if st.button("🚀 PPT 만들기", key="create_ppt_button") and text_input.strip
                                         max_lines_per_slide=max_lines_per_slide_input,
                                         min_chars_per_line=min_chars_per_line_input)
     ppt = create_ppt(slide_texts, max_chars_per_line_in_ppt=max_chars_per_line_ppt_input,
-                    max_lines_per_slide=max_lines_per_slide_input)
+                    max_lines_per_slide=max_lines_per_slide_input,
+                    font_size=font_size_input)
 
     if ppt:
         ppt_io = io.BytesIO()
