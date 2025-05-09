@@ -62,7 +62,7 @@ def split_and_group_text(
             current_slide_text = sentence + " "
             current_slide_lines = lines_needed
             split_occurred = True  # 분할이 일어났음을 기록
-        
+
         # 다음 문장과 합쳐도 최대 줄 수를 넘지 않는지 확인
         if i + 1 < len(sentences):
             next_sentence = sentences[i + 1]
@@ -93,6 +93,7 @@ def create_ppt(
     prs.slide_width = Inches(13.33)
     prs.slide_height = Inches(7.5)
     total_slides = len(slide_texts)
+    check_needed_slides = []  # [추가] 확인 필요 슬라이드 번호 저장
 
     for i, text in enumerate(slide_texts):
         slide = prs.slides.add_slide(prs.slide_layouts[6])
@@ -103,12 +104,22 @@ def create_ppt(
         tf.clear()
 
         lines = textwrap.wrap(text, width=max_chars_per_line_in_ppt, break_long_words=False)
-        p = tf.paragraphs[0]
-        p.text = "\n".join(lines)
-        p.font.size = Pt(font_size)
-        p.font.name = "Noto Color Emoji"
-        p.font.bold = True
-        p.alignment = PP_ALIGN.CENTER
+        if len(lines) > max_lines_per_slide:  # [수정] 최대 줄 수 초과 확인
+            check_needed_slides.append(i + 1)  # 슬라이드 번호 저장
+            p = tf.paragraphs[0]
+            p.text = text  # 원본 텍스트 그대로 표시
+            p.font.size = Pt(font_size)
+            p.font.name = "Noto Color Emoji"
+            p.font.bold = True
+            p.alignment = PP_ALIGN.CENTER
+            add_check_needed_shape(slide)  # "확인 필요" 도형 추가
+        else:
+            p = tf.paragraphs[0]
+            p.text = "\n".join(lines)
+            p.font.size = Pt(font_size)
+            p.font.name = "Noto Color Emoji"
+            p.font.bold = True
+            p.alignment = PP_ALIGN.CENTER
 
         # 페이지 번호 (현재 페이지/전체 페이지)
         footer_box = slide.shapes.add_textbox(Inches(11.5), Inches(7.0), Inches(1.5), Inches(0.4))
@@ -127,7 +138,7 @@ def create_ppt(
     prs.save(ppt_io)
     ppt_io.seek(0)
 
-    return ppt_io
+    return ppt_io, check_needed_slides  # [수정] 확인 필요 슬라이드 번호 반환
 
 
 def add_end_mark(slide):
@@ -149,6 +160,26 @@ def add_end_mark(slide):
     end_paragraph.font.bold = True
     end_text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.MIDDLE
     end_text_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
+
+
+def add_check_needed_shape(slide):
+    """슬라이드에 '확인 필요' 도형을 추가하는 함수"""
+
+    check_shape = slide.shapes.add_shape(
+        MSO_SHAPE.RECTANGLE, Inches(0.5), Inches(0.3), Inches(2), Inches(0.5)
+    )
+    check_shape.fill.solid()
+    check_shape.fill.fore_color.rgb = RGBColor(255, 255, 0)  # 노란색 배경
+    check_shape.line.color.rgb = RGBColor(0, 0, 0)  # 검은색 테두리
+
+    check_text_frame = check_shape.text_frame
+    check_text_frame.clear()
+    check_paragraph = check_text_frame.paragraphs[0]
+    check_paragraph.text = "확인 필요"
+    check_paragraph.font.size = Pt(18)
+    check_paragraph.font.bold = True
+    check_text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.MIDDLE
+    check_text_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
 
 
 # Streamlit UI
@@ -196,7 +227,7 @@ if st.button("🚀 PPT 만들기", key="create_ppt_button"):
         min_chars_per_line=min_chars_per_line_input,
         max_chars_per_line_in_ppt=max_chars_per_line_ppt_input,
     )
-    ppt_file = create_ppt(
+    ppt_file, check_needed_slides = create_ppt(
         slide_texts,
         original_texts,  # [추가] 원본 텍스트 전달
         max_chars_per_line_in_ppt=max_chars_per_line_ppt_input,
@@ -215,4 +246,9 @@ if st.button("🚀 PPT 만들기", key="create_ppt_button"):
     if split_occurred:
         st.info(
             "⚠️ 긴 문장으로 인해 일부 슬라이드가 자동으로 분할되었습니다. PPT를 확인하여 어색한 부분이 있는지 검토해주세요."
+        )
+
+    if check_needed_slides:  # [추가] 확인 필요 슬라이드 있는 경우 알림
+        st.warning(
+            f"❗️ 일부 슬라이드({check_needed_slides})는 최대 줄 수를 초과하여 텍스트가 나뉘었습니다. PPT를 확인하여 가독성을 검토해주세요."
         )
