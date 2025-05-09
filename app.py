@@ -9,13 +9,13 @@ import re
 import textwrap
 
 # 문장이 차지할 줄 수 계산 (단어 잘림 방지)
-def sentence_line_count(sentence, max_chars_per_line=15):  # 한 줄 최대 15자
+def sentence_line_count(sentence, max_chars_per_line=20):  # 한 줄 최대 20자
     wrapped_lines = textwrap.wrap(sentence, width=max_chars_per_line, break_long_words=False,
                                  fix_sentence_endings=True)
     return max(1, len(wrapped_lines))
 
 # 문장 단위로 나누고 슬라이드당 최대 줄 수 제한
-def group_sentences_to_slides(sentences, max_lines_per_slide=5, max_chars_per_line=15):  # 한 줄 최대 15자
+def group_sentences_to_slides(sentences, max_lines_per_slide=5, max_chars_per_line=20):  # 한 줄 최대 20자
     slides = []
     current_slide_sentences = []
     current_slide_lines = 0
@@ -42,7 +42,7 @@ def split_text(text):
     return [s.strip() for s in sentences if s.strip()]
 
 # PPT 생성 함수
-def create_ppt(slide_texts, max_chars_per_line_in_ppt=15):  # 한 줄 최대 15자
+def create_ppt(slide_texts, max_chars_per_line_in_ppt=20):  # 한 줄 최대 20자
     prs = Presentation()
     prs.slide_width = Inches(13.33)
     prs.slide_height = Inches(7.5)
@@ -53,7 +53,7 @@ def create_ppt(slide_texts, max_chars_per_line_in_ppt=15):  # 한 줄 최대 15�
             slide = prs.slides.add_slide(prs.slide_layouts[6])
             textbox = slide.shapes.add_textbox(Inches(0.5), Inches(0.3), Inches(12.33), Inches(6.2))
             tf = textbox.text_frame
-            tf.vertical_anchor = MSO_VERTICAL_ANCHOR.TOP
+            tf.vertical_anchor = MSO_VERTICAL_ANCHOR.TOP  # 명시적으로 상단 정렬 지정
             tf.word_wrap = True
             tf.clear()
 
@@ -68,7 +68,7 @@ def create_ppt(slide_texts, max_chars_per_line_in_ppt=15):  # 한 줄 최대 15�
             p.font.color.rgb = RGBColor(0, 0, 0)
             p.alignment = PP_ALIGN.CENTER  # 가운데 정렬
 
-            tf.vertical_anchor = MSO_VERTICAL_ANCHOR.MIDDLE
+            tf.vertical_anchor = MSO_VERTICAL_ANCHOR.TOP  # 텍스트 프레임 자체도 상단에 붙임
 
             # 페이지 번호 (현재 페이지/전체 페이지)
             footer_box = slide.shapes.add_textbox(Inches(11.5), Inches(7.0), Inches(1.5), Inches(0.4))
@@ -81,8 +81,8 @@ def create_ppt(slide_texts, max_chars_per_line_in_ppt=15):  # 한 줄 최대 15�
             footer_p.alignment = PP_ALIGN.RIGHT
 
             if idx == total_slides:  # 마지막 슬라이드에 '끝' 도형 추가
-                end_shape = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(6), Inches(6.5), Inches(1.5),
-                                                   Inches(0.5))
+                end_shape = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(10), Inches(6), Inches(2,0),
+                                                   Inches(1))  # 위치 및 크기 조정
                 end_shape.fill.solid()
                 end_shape.fill.fore_color.rgb = RGBColor(255, 0, 0)  # 빨간색
                 end_shape.line.color.rgb = RGBColor(0, 0, 0)  # 검은색 테두리
@@ -91,7 +91,7 @@ def create_ppt(slide_texts, max_chars_per_line_in_ppt=15):  # 한 줄 최대 15�
                 end_text_frame.clear()
                 end_paragraph = end_text_frame.paragraphs[0]
                 end_paragraph.text = "끝"
-                end_paragraph.font.size = Pt(24)
+                end_paragraph.font.size = Pt(36)  # 글자 크기 조정
                 end_paragraph.font.color.rgb = RGBColor(255, 255, 255)  # 흰색 글자
                 end_text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.MIDDLE
                 end_text_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
@@ -113,8 +113,8 @@ max_lines_per_slide_input = st.slider("슬라이드당 최대 줄 수:", min_val
 max_chars_per_line_input = st.slider("한 줄당 최대 글자 수 (줄 수 계산 시):", min_value=10, max_value=100, value=35,
                                      key="max_chars_slider_logic")
 # PPT 텍스트 박스 내에서의 줄바꿈 글자 수 (실제 PPT에 표시될 때 적용)
-max_chars_per_line_ppt_input = st.slider("한 줄당 최대 글자 수 (PPT 표시용):", min_value=10, max_value=100, value=15,
-                                         key="max_chars_slider_ppt")  # 기본값 15로 변경
+max_chars_per_line_ppt_input = st.slider("한 줄당 최대 글자 수 (PPT 표시용):", min_value=10, max_value=100, value=20,
+                                         key="max_chars_slider_ppt")  # 기본값 20으로 변경
 
 if st.button("PPT 만들기", key="create_ppt_button") and text_input.strip():
     sentences = split_text(text_input)
