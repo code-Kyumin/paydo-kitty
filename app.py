@@ -14,11 +14,19 @@ def sentence_line_count(sentence, max_chars_per_line):
     lines = 1
     current_line_length = 0
     for word in words:
-        if current_line_length + len(word) + 1 <= max_chars_per_line:
-            current_line_length += len(word) + 1
+        # 첫 번째 단어가 아닌 경우, 공백을 고려하여 길이 계산
+        if current_line_length > 0:
+            if current_line_length + len(word) + 1 <= max_chars_per_line:
+                current_line_length += len(word) + 1
+            else:
+                lines += 1
+                current_line_length = len(word) + 1
         else:
-            lines += 1
-            current_line_length = len(word) + 1
+            if len(word) <= max_chars_per_line:
+                current_line_length = len(word)
+            else:
+                lines += 1
+                current_line_length = len(word)
     return lines
 
 # 전체 입력을 문장 단위로 분해
