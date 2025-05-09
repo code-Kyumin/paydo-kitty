@@ -26,6 +26,15 @@ def group_sentences_to_slides(sentences, max_chars_per_line, max_lines_per_slide
     current_slide_lines = 0
 
     for sentence in sentences:
+        # 문장 부호로 끝나지 않으면 별도 슬라이드로 처리
+        if not re.search(r'[.!?]$', sentence.strip()):
+            if current_slide_text:
+                slides_data.append(current_slide_text.strip())
+            slides_data.append(sentence.strip())
+            current_slide_text = ""
+            current_slide_lines = 0
+            continue
+
         lines_needed = sentence_line_count(sentence, max_chars_per_line)
         # 현재 문장이 최소 글자 수 기준을 위반하는지 확인
         if len(sentence) < min_chars_per_line and current_slide_lines > 0:
@@ -59,14 +68,15 @@ def create_slide(prs, text, current_idx, total_slides, max_chars_per_line, min_c
     tf.word_wrap = True
     tf.clear()
 
-    # 최소 글자 수 미만이면 줄바꿈 없이 그대로 출력
+    p = tf.paragraphs[0]
+    # 최소 글자 수 미만이면 강제 줄바꿈 처리
     if len(text) < min_chars_per_line:
-        p = tf.paragraphs[0]
-        p.text = text
+        wrapped_text = textwrap.wrap(text, width=max_chars_per_line, break_long_words=True,
+                                     fix_sentence_endings=True, replace_whitespace=False)
+        p.text = "\n".join(wrapped_text)
     else:
         wrapped_text = textwrap.fill(text, width=max_chars_per_line, break_long_words=False,
                                      fix_sentence_endings=True, replace_whitespace=False)
-        p = tf.paragraphs[0]
         p.text = wrapped_text
 
     p.font.size = Pt(54)
