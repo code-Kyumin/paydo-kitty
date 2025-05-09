@@ -65,6 +65,7 @@ def create_ppt(slide_texts, max_chars_per_line_in_ppt=18, font_size=54):
         p.text = "\n".join(lines)
         p.font.size = Pt(font_size)
         p.font.name = 'Noto Color Emoji'
+        p.font.bold = True  # 텍스트 볼드 처리
         p.alignment = PP_ALIGN.CENTER
 
         # 페이지 번호 (현재 페이지/전체 페이지)
@@ -77,11 +78,22 @@ def create_ppt(slide_texts, max_chars_per_line_in_ppt=18, font_size=54):
         footer_p.font.color.rgb = RGBColor(128, 128, 128)
         footer_p.alignment = PP_ALIGN.RIGHT
 
+        if i == total_slides - 1:  # 마지막 슬라이드에 '끝' 표시 추가
+            add_end_mark(slide)
+
     ppt_io = io.BytesIO()
     prs.save(ppt_io)
     ppt_io.seek(0)
 
     return ppt_io
+
+def add_end_mark(slide):
+    """슬라이드에 '끝' 표시를 추가하는 함수 (우측 하단)"""
+    end_shape = slide.shapes.add_textbox(Inches(10.5), Inches(6.5), Inches(2), Inches(0.5))
+    end_shape.text_frame.text = "끝"
+    end_shape.text_frame.paragraphs[0].font.size = Pt(36)
+    end_shape.text_frame.paragraphs[0].font.bold = True
+    end_shape.text_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
 
 # Streamlit UI
 st.set_page_config(page_title="Paydo", layout="centered")
