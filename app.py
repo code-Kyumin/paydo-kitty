@@ -23,7 +23,7 @@ def sentence_line_count(sentence, max_chars_per_line=35):
     return lines
 
 # 전체 입력을 문장 단위로 분해하고, 특정 패턴을 별도 처리
-def split_and_group_text(text, separate_pattern=None, max_lines_per_slide=5, max_chars_per_line=35):
+def split_and_group_text(text, separate_pattern=None, max_lines_per_slide=5, min_chars_per_line=4, max_chars_per_line=18):
     slides = []
     current_slide_sentences = []
     current_slide_lines = 0
@@ -44,12 +44,22 @@ def split_and_group_text(text, separate_pattern=None, max_lines_per_slide=5, max
             # 일반 문장의 경우, 줄 수를 계산하여 슬라이드에 추가
             lines_needed = sentence_line_count(sentence, max_chars_per_line)
             if current_slide_lines + lines_needed <= max_lines_per_slide:
-                current_slide_sentences.append(sentence)
-                current_slide_lines += lines_needed
+                # 최소 글자 수를 만족하는 경우에만 추가
+                if len(sentence) >= min_chars_per_line:
+                    current_slide_sentences.append(sentence)
+                    current_slide_lines += lines_needed
+                else:
+                    current_slide_sentences.append(sentence) # 최소 글자 수 미만이라도 일단 추가 (추후 처리 가능)
+                    current_slide_lines += lines_needed
             else:
                 slides.append("\n".join(current_slide_sentences))
-                current_slide_sentences = [sentence]
-                current_slide_lines = lines_needed
+                # 최소 글자 수를 만족하는 문장만 새 슬라이드에 추가
+                if len(sentence) >= min_chars_per_line:
+                    current_slide_sentences = [sentence]
+                    current_slide_lines = lines_needed
+                else:
+                    current_slide_sentences = [sentence]
+                    current_slide_lines = lines_needed
     
     # 마지막 슬라이드 내용 추가
     if current_slide_sentences:
@@ -63,7 +73,7 @@ def split_text(text):
     return [s.strip() for s in sentences if s.strip()]
 
 # PPT 생성 함수
-def create_ppt(slide_texts, max_chars_per_line_in_ppt=35, max_lines_per_slide=5):
+def create_ppt(slide_texts, max_chars_per_line_in_ppt=20, max_lines_per_slide=5):
     prs = Presentation()
     prs.slide_width = Inches(13.33)
     prs.slide_height = Inches(7.5)
@@ -73,43 +83,13 @@ def create_ppt(slide_texts, max_chars_per_line_in_ppt=35, max_lines_per_slide=5)
 
     try:
         for original_text in slide_texts:
-            lines = []
-            temp_line = ""
-            for word in original_text.split():
-                if len(temp_line + word) + 1 <= max_chars_per_line_in_ppt:
-                    temp_line += word + " "
-                else:
-                    lines.append(temp_line.strip())
-                    temp_line = word + " "
-            lines.append(temp_line.strip())
-            
-            num_lines = len(lines)
-
-            if num_lines <= max_lines_per_slide:
-                slides_data.append({
-                    "text": original_text,
-                    "lines": lines
-                })
-                total_slides += 1
-            else:
-                # 현재 문장이 최대 줄 수를 초과하는 경우, 강제로 새 슬라이드 생성
-                temp_text = ""
-                temp_lines = []
-                for line in lines:
-                    temp_lines.append(line)
-                    if len(temp_lines) == max_lines_per_slide:
-                        slides_data.append({
-                            "text": "\n".join(temp_lines),
-                            "lines": temp_lines
-                        })
-                        total_slides += 1
-                        temp_lines = []
-                if temp_lines:  # 남은 줄이 있으면 추가
-                    slides_data.append({
-                        "text": "\n".join(temp_lines),
-                        "lines": lines
-                    })
-                    total_slides += 1
+            lines = textwrap.wrap(original_text, width=max_chars_per_line_in_ppt, break_long_words=False,
+                                 fix_sentence_endings=True)
+            slides_data.append({
+                "text": original_text,
+                "lines": lines
+            })
+            total_slides += 1
 
         # 실제 슬라이드 생성
         for data in slides_data:
@@ -190,15 +170,18 @@ separate_pattern_input = st.text_input("🔍 분리할 텍스트 패턴 (정규 
 
 # UI에서 사용자로부터 직접 값을 입력받도록 슬라이더 추가
 max_lines_per_slide_input = st.slider("📄 슬라이드당 최대 줄 수:", min_value=1, max_value=10, value=4, key="max_lines_slider")
-max_chars_per_line_input = st.slider("🔡 한 줄당 최대 글자 수 (계산 시):", min_value=3, max_value=20, value=18, key="max_chars_slider_logic")
+min_chars_per_line_input = st.slider("📏 한 줄당 최소 글자 수 (텍스트 처리):", min_value=1, max_value=10, value=4, key="min_chars_slider_min")
+max_chars_per_line_input = st.slider("📐 한 줄당 최대 글자 수 (텍스트 처리):", min_value=3, max_value=20, value=18, key="max_chars_slider_max")
 # PPT 텍스트 박스 내에서의 줄바꿈 글자 수 (실제 PPT에 표시될 때 적용)
-max_chars_per_line_ppt_input = st.slider("🔤 한 줄당 최대 글자 수 (PPT 표시):", min_value=1, max_value=10, value=4, key="max_chars_slider_ppt")
+max_chars_per_line_ppt_input = st.slider("🔤 한 줄당 최대 글자 수 (PPT 표시):", min_value=1, max_value=20, value=20, key="max_chars_slider_ppt")
 
 
 if st.button("🚀 PPT 만들기", key="create_ppt_button") and text_input.strip():
     # 수정된 함수 호출
     slide_texts = split_and_group_text(text_input, separate_pattern=separate_pattern_input,
                                         max_lines_per_slide=max_lines_per_slide_input,
+                                        min_chars_per_line=min_chars_per_line_input,
+                                        max_chars_per_line=max_chars_per_line_input,
                                         max_chars_per_line=max_chars_per_line_input)
     ppt = create_ppt(slide_texts, max_chars_per_line_in_ppt=max_chars_per_line_ppt_input,
                     max_lines_per_slide=max_lines_per_slide_input)
