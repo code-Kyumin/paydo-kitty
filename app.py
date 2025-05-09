@@ -38,8 +38,14 @@ def split_and_group_text(text, max_lines_per_slide=5, min_chars_per_line=4, max_
     current_slide_text = ""
     current_slide_lines = 0
     sentences = re.split(r'(?<=[.!?])\s+', text.strip())
+    seen_sentences = set()  # [추가] 이미 처리한 문장을 저장할 set
 
     for sentence in sentences:
+        sentence = sentence.strip()
+        if sentence in seen_sentences:  # [추가] 중복 문장 확인
+            continue
+        seen_sentences.add(sentence)  # [추가] 처리한 문장 저장
+        
         lines_needed = sentence_line_count(sentence, max_chars_per_line_in_ppt)
 
         if current_slide_lines + lines_needed <= max_lines_per_slide:
