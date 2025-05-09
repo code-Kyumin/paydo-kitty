@@ -9,10 +9,32 @@ import re
 import textwrap
 
 # 문장이 차지할 줄 수 계산 (단어 잘림 방지)
-def sentence_line_count(sentence, max_chars_per_line=20):
+def sentence_line_count(sentence, max_chars_per_line=35):
     wrapped_lines = textwrap.wrap(sentence, width=max_chars_per_line, break_long_words=False,
                                  fix_sentence_endings=True)
     return max(1, len(wrapped_lines))
+
+# 문장 단위로 나누고 슬라이드당 최대 줄 수 제한
+def group_sentences_to_slides(sentences, max_lines_per_slide=5, max_chars_per_line=35):
+    slides = []
+    current_slide_sentences = []
+    current_slide_lines = 0
+
+    for sentence in sentences:
+        lines_for_sentence = sentence_line_count(sentence, max_chars_per_line)
+
+        if current_slide_lines + lines_for_sentence <= max_lines_per_slide:
+            current_slide_sentences.append(sentence)
+            current_slide_lines += lines_for_sentence
+        else:
+            slides.append("\n".join(current_slide_sentences))
+            current_slide_sentences = [sentence]
+            current_slide_lines = lines_for_sentence
+
+    if current_slide_sentences:
+        slides.append("\n".join(current_slide_sentences))
+
+    return slides
 
 # 전체 입력을 문장 단위로 분해
 def split_text(text):
@@ -20,7 +42,7 @@ def split_text(text):
     return [s.strip() for s in sentences if s.strip()]
 
 # PPT 생성 함수
-def create_ppt(slide_texts, max_chars_per_line_in_ppt=20, max_lines_per_slide=5):
+def create_ppt(slide_texts, max_chars_per_line_in_ppt=35, max_lines_per_slide=5):
     prs = Presentation()
     prs.slide_width = Inches(13.33)
     prs.slide_height = Inches(7.5)
