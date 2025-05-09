@@ -23,7 +23,7 @@ def sentence_line_count(sentence, max_chars_per_line=35):
     return lines
 
 # 전체 입력을 문장 단위로 분해하고, 특정 패턴을 별도 처리
-def split_and_group_text(text, separate_pattern=None, max_lines_per_slide=5, min_chars_per_line=4):
+def split_and_group_text(text, max_lines_per_slide=5, min_chars_per_line=4):
     slides = []
     current_slide_sentences = []
     current_slide_lines = 0
@@ -32,31 +32,18 @@ def split_and_group_text(text, separate_pattern=None, max_lines_per_slide=5, min
 
     for sentence in sentences:
         sentence = sentence.strip()
-        # 특정 패턴을 만족하는지 확인
-        if separate_pattern and re.match(separate_pattern, sentence):
-            # 현재 슬라이드에 내용이 있으면 추가하고 새 슬라이드 시작
-            if current_slide_sentences:
-                slides.append("\n".join(current_slide_sentences))
-            slides.append(sentence)  # 패턴에 맞는 텍스트는 단독 슬라이드로
-            current_slide_sentences = []
-            current_slide_lines = 0
+        words = sentence.split()
+        lines_needed = len(words)
+        lines_needed = max(1, (len(sentence) + min_chars_per_line - 1) // min_chars_per_line)
+            
+        if current_slide_lines + lines_needed <= max_lines_per_slide:
+            current_slide_sentences.append(sentence)
+            current_slide_lines += lines_needed
         else:
-            # 일반 문장의 경우, 줄 수를 계산하여 슬라이드에 추가
-            words = sentence.split()
-            lines_needed = len(words)  # 단어 수를 줄 수로 계산 (띄어쓰기 기준)
-            
-            # 최소 글자 수를 고려하여 줄 수를 보정
-            lines_needed = max(1, (len(sentence) + min_chars_per_line - 1) // min_chars_per_line)
-            
-            if current_slide_lines + lines_needed <= max_lines_per_slide:
-                current_slide_sentences.append(sentence)
-                current_slide_lines += lines_needed
-            else:
-                slides.append("\n".join(current_slide_sentences))
-                current_slide_sentences = [sentence]
-                current_slide_lines = lines_needed
+            slides.append("\n".join(current_slide_sentences))
+            current_slide_sentences = [sentence]
+            current_slide_lines = lines_needed
 
-    # 마지막 슬라이드 내용 추가
     if current_slide_sentences:
         slides.append("\n".join(current_slide_sentences))
 
@@ -160,9 +147,6 @@ st.title("🎬 Paydo 촬영 대본 PPT 자동 생성기")
 
 text_input = st.text_area("📝 촬영 대본을 입력하세요:", height=300, key="text_input_area")
 
-# "분리할 텍스트 패턴" 입력란에서 기본값 제거
-separate_pattern_input = st.text_input("🔍 분리할 텍스트 패턴 (정규 표현식):", key="separate_pattern_input")
-
 # UI에서 사용자로부터 직접 값을 입력받도록 슬라이더 추가
 max_lines_per_slide_input = st.slider("📄 슬라이드당 최대 줄 수:", min_value=1, max_value=10, value=5, key="max_lines_slider")
 # PPT 텍스트 박스 내에서의 줄바꿈 글자 수 (실제 PPT에 표시될 때 적용)
@@ -173,7 +157,7 @@ font_size_input = st.slider("🅰️ 폰트 크기:", min_value=10, max_value=60
 
 if st.button("🚀 PPT 만들기", key="create_ppt_button") and text_input.strip():
     # 수정된 함수 호출
-    slide_texts = split_and_group_text(text_input, separate_pattern=separate_pattern_input,
+    slide_texts = split_and_group_text(text_input,
                                         max_lines_per_slide=max_lines_per_slide_input,
                                         min_chars_per_line=min_chars_per_line_input)
     ppt = create_ppt(slide_texts, max_chars_per_line_in_ppt=max_chars_per_line_ppt_input,
