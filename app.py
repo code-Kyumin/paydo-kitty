@@ -9,11 +9,32 @@ import re
 import textwrap
 import docx  # python-docx 라이브러리 추가
 from konlpy.tag import Kkma  # KoNLPy에서 Kkma 형태소 분석기 임포트
+import jpype
+import os
+
+# JVM 초기화 함수
+def initialize_jvm():
+    if not jpype.isJVMStarted():
+        try:
+            java_home = os.environ.get("JAVA_HOME")
+            if java_home:
+                jvm_path = os.path.join(java_home, "lib", "server", "libjvm.so")
+                if os.path.exists(jvm_path):
+                    jpype.startJVM(jpype.getDefaultJVMPath(), convertStrings=False)
+                else:
+                    st.error(f"libjvm.so 파일을 찾을 수 없습니다. 경로: {jvm_path}")
+            else:
+                jpype.startJVM(jpype.getDefaultJVMPath(), convertStrings=False)
+        except jpype.JVMAlreadyStartedException:
+            pass
+        except jpype.JVMNotFoundException as e:
+            st.error(f"JVM을 시작할 수 없습니다: {e}")
+        except Exception as e:
+            st.error(f"JVM 초기화 중 오류 발생: {e}")
 
 # Word 파일에서 텍스트 추출하는 함수
 def extract_text_from_word(file_path):
     """Word 파일에서 모든 텍스트를 추출하여 하나의 문자열로 반환합니다."""
-
     doc = docx.Document(file_path)
     full_text = []
     for paragraph in doc.paragraphs:
@@ -23,11 +44,9 @@ def extract_text_from_word(file_path):
 # 문장이 차지할 줄 수 계산 (단어 잘림 방지)
 def calculate_text_lines(text, max_chars_per_line):
     """주어진 텍스트가 지정된 최대 문자 길이를 기준으로 몇 줄을 차지하는지 계산합니다."""
-
     lines = 0
     if not text:
         return lines
-
     words = text.split()
     current_line_length = 0
     lines += 1  # 최소 1줄
@@ -38,12 +57,10 @@ def calculate_text_lines(text, max_chars_per_line):
         else:
             lines += 1
             current_line_length = word_length
-            
     return lines
 
 def split_text_into_slides_konlpy(text, max_lines_per_slide, max_chars_per_line_in_ppt):
     """KoNLPy를 사용하여 입력 텍스트를 슬라이드에 맞게 분할하고, 각 슬라이드가 원본 문장인지 여부를 반환합니다."""
-
     kkma = Kkma()
     slides = []
     original_sentence_flags = []
@@ -101,25 +118,19 @@ def split_text_into_slides_konlpy(text, max_lines_per_slide, max_chars_per_line_
                     current_slide_lines = calculate_text_lines(
                         current_slide_text, max_chars_per_line_in_ppt
                     )
-                    original_sentence_flags.append(
-                        False
-                    )  # [수정] 분할된 문장으로 표시
+                    original_sentence_flags.append(False)  # 분할된 문장으로 표시
                 else:
                     # 분할 가능한 지점이 없으면, 단어 단위로 분할
                     slides.append(current_slide_text.strip())
                     current_slide_text = sentence
                     current_slide_lines = lines_needed
-                    original_sentence_flags.append(
-                        False
-                    )  # [수정] 분할된 문장으로 표시
+                    original_sentence_flags.append(False)  # 분할된 문장으로 표시
             else:
                 # 분할 가능한 지점이 없으면, 단어 단위로 분할
                 slides.append(current_slide_text.strip())
                 current_slide_text = sentence
                 current_slide_lines = lines_needed
-                original_sentence_flags.append(
-                    False
-                )  # [수정] 분할된 문장으로 표시
+                original_sentence_flags.append(False)  # 분할된 문장으로 표시
         # [수정] 다음 슬라이드를 위해 초기화
         current_slide_text = current_slide_text.strip()
         if current_slide_text:
@@ -133,7 +144,6 @@ def split_text_into_slides_konlpy(text, max_lines_per_slide, max_chars_per_line_
 
 def create_powerpoint(slides, original_sentence_flags, max_chars_per_line_in_ppt, max_lines_per_slide, font_size):
     """분할된 텍스트 슬라이드와 문장 분할 정보를 바탕으로 PowerPoint 프레젠테이션을 생성합니다."""
-
     prs = Presentation()
     prs.slide_width = Inches(13.33)
     prs.slide_height = Inches(7.5)
@@ -143,12 +153,12 @@ def create_powerpoint(slides, original_sentence_flags, max_chars_per_line_in_ppt
         slide = prs.slides.add_slide(prs.slide_layouts[6])  # 6번 레이아웃 (빈 슬라이드) 사용
         add_text_to_slide(slide, text, font_size)
         add_slide_number(slide, i + 1, len(slides))
-        
+
         # 분할된 문장인 경우 '확인 필요' 도형 추가
         if not original_sentence_flags[i]:
             add_check_needed_shape(slide)
             check_needed_slides.append(i + 1)
-            
+
         # 마지막 슬라이드인 경우 '끝' 표시 추가
         if i == len(slides) - 1:
             add_end_mark(slide)
@@ -157,7 +167,6 @@ def create_powerpoint(slides, original_sentence_flags, max_chars_per_line_in_ppt
 
 def add_text_to_slide(slide, text, font_size):
     """슬라이드에 텍스트를 추가하고 서식을 설정합니다."""
-
     textbox = slide.shapes.add_textbox(Inches(0.5), Inches(0.3), Inches(12.33), Inches(6.2))
     text_frame = textbox.text_frame
     text_frame.clear()  # 기존 텍스트 제거
@@ -175,7 +184,6 @@ def add_text_to_slide(slide, text, font_size):
 
 def add_slide_number(slide, current, total):
     """슬라이드에 페이지 번호를 추가합니다."""
-
     footer_box = slide.shapes.add_textbox(Inches(11.5), Inches(7.0), Inches(1.5), Inches(0.4))
     footer_text_frame = footer_box.text_frame
     footer_text_frame.clear()
@@ -188,7 +196,6 @@ def add_slide_number(slide, current, total):
 
 def add_end_mark(slide):
     """슬라이드에 '끝' 표시를 추가합니다."""
-
     end_shape = slide.shapes.add_shape(
         MSO_SHAPE.RECTANGLE,
         Inches(10),
@@ -211,7 +218,6 @@ def add_end_mark(slide):
 
 def add_check_needed_shape(slide):
     """슬라이드에 '확인 필요' 표시를 추가합니다."""
-
     check_shape = slide.shapes.add_shape(
         MSO_SHAPE.RECTANGLE,
         Inches(0.5),
@@ -247,6 +253,9 @@ max_lines_per_slide_input = st.slider("📄 슬라이드당 최대 줄 수:", mi
 max_chars_per_line_ppt_input = st.slider("📏 한 줄당 최대 글자 수 (PPT 표시):", min_value=3, max_value=30, value=18, key="max_chars_slider_ppt")
 min_chars_per_line_input = st.slider("🔤 한 줄당 최소 글자 수:", min_value=1, max_value=10, value=4, key="min_chars_slider")
 font_size_input = st.slider("🅰️ 폰트 크기:", min_value=10, max_value=60, value=54, key="font_size_slider")
+
+# JVM 초기화
+initialize_jvm()
 
 if st.button("🚀 PPT 만들기", key="create_ppt_button"):
     if uploaded_file is not None:
