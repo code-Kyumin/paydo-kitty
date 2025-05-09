@@ -15,7 +15,7 @@ def sentence_line_count(sentence, max_chars_per_line=35): # 이 값을 조정하
     return max(1, len(wrapped_lines))
 
 # 문장 단위로 나누고 슬라이드당 최대 줄 수 제한
-def group_sentences_to_slides(sentences, max_lines_per_slide=5, max_chars_per_line=35): # 슬라이드당 최대 줄 수, 줄당 최대 글자 수
+def group_sentences_to_slides(sentences, max_lines_per_slide=4, max_chars_per_line=35): # 슬라이드당 최대 줄 수, 줄당 최대 글자 수
     slides = []
     current_slide_sentences = []
     current_slide_lines = 0
@@ -94,7 +94,7 @@ st.title("🎤 Paydo Kitty - 촬영용 대본 PPT 생성기")
 text_input = st.text_area("촬영용 대본을 입력하세요:", height=300, key="text_input_area")
 
 # UI에서 사용자로부터 직접 값을 입력받도록 슬라이더 추가
-max_lines_per_slide_input = st.slider("슬라이드당 최대 줄 수:", min_value=1, max_value=10, value=5, key="max_lines_slider")
+max_lines_per_slide_input = st.slider("슬라이드당 최대 줄 수:", min_value=1, max_value=10, value=4, key="max_lines_slider")
 max_chars_per_line_input = st.slider("한 줄당 최대 글자 수 (줄 수 계산 시):", min_value=10, max_value=100, value=35, key="max_chars_slider_logic")
 # PPT 텍스트 박스 내에서의 줄바꿈 글자 수 (실제 PPT에 표시될 때 적용)
 max_chars_per_line_ppt_input = st.slider("한 줄당 최대 글자 수 (PPT 표시용):", min_value=10, max_value=100, value=35, key="max_chars_slider_ppt")
