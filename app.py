@@ -110,7 +110,7 @@ if st.button("PPT 만들기", key="create_ppt_button") and text_input.strip():
     slide_texts = group_sentences_to_slides(sentences, max_lines_per_slide=max_lines_per_slide_input,
                                              max_chars_per_line=max_chars_per_line_input)
     print("slide_texts 내용:", slide_texts)  # 추가: slide_texts 내용 확인
-    ppt = create_ppt(slide_texts, max_chars_per_line_ppt=max_chars_per_line_ppt_input)
+    ppt = create_ppt(slide_texts, max_chars_per_line_in_ppt=max_chars_per_line_ppt_input)
 
     if ppt:  # ppt가 None이 아닌 경우에만 다운로드 버튼 생성
         ppt_io = io.BytesIO()
