@@ -29,7 +29,7 @@ def group_sentences_to_slides(sentences, max_lines_per_slide=5, max_chars_per_li
             current_slide_lines = lines_for_sentence
         else:
             current_slide_sentences.append(sentence)
-            current_slide_lines += lines_for_sentence
+            current_slide_lines += current_slide_lines
 
     if current_slide_sentences:
         slides.append("\n".join(current_slide_sentences))
@@ -81,8 +81,13 @@ def create_ppt(slide_texts, max_chars_per_line_in_ppt=20):  # 한 줄 최대 20�
             footer_p.alignment = PP_ALIGN.RIGHT
 
             if idx == total_slides:  # 마지막 슬라이드에 '끝' 도형 추가
-                end_shape = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(10), Inches(6), Inches(2,0),
-                                                   Inches(1))  # 위치 및 크기 조정
+                end_shape = slide.shapes.add_shape(
+                    MSO_SHAPE.RECTANGLE,
+                    Inches(10),  # left
+                    Inches(6),   # top
+                    Inches(2),   # width
+                    Inches(1)    # height
+                )
                 end_shape.fill.solid()
                 end_shape.fill.fore_color.rgb = RGBColor(255, 0, 0)  # 빨간색
                 end_shape.line.color.rgb = RGBColor(0, 0, 0)  # 검은색 테두리
