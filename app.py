@@ -10,9 +10,17 @@ import textwrap
 
 # 문장이 차지할 줄 수 계산 (단어 잘림 방지)
 def sentence_line_count(sentence, max_chars_per_line=35):
-    wrapped_lines = textwrap.wrap(sentence, width=max_chars_per_line, break_long_words=False,
-                                 fix_sentence_endings=True)
-    return max(1, len(wrapped_lines))
+    words = sentence.split()
+    lines = 1
+    current_line_length = 0
+    for word in words:
+        if current_line_length + len(word) + 1 <= max_chars_per_line:
+            current_line_length += len(word) + 1
+        else:
+            lines += 1
+            current_line_length = len(word)
+            
+    return lines
 
 # 문장 단위로 나누고 슬라이드당 최대 줄 수 제한
 def group_sentences_to_slides(sentences, max_lines_per_slide=5, max_chars_per_line=35):
@@ -54,8 +62,16 @@ def create_ppt(slide_texts, max_chars_per_line_in_ppt=35, max_lines_per_slide=5)
 
     try:
         for original_text in slide_texts:
-            lines = textwrap.wrap(original_text, width=max_chars_per_line_in_ppt,
-                                  break_long_words=False, replace_whitespace=False)
+            lines = []
+            temp_line = ""
+            for word in original_text.split():
+                if len(temp_line + word) + 1 <= max_chars_per_line_in_ppt:
+                    temp_line += word + " "
+                else:
+                    lines.append(temp_line.strip())
+                    temp_line = word + " "
+            lines.append(temp_line.strip())
+            
             num_lines = len(lines)
 
             if num_lines <= max_lines_per_slide:
