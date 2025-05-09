@@ -7,56 +7,50 @@ import io
 import re
 import textwrap
 
-# 긴 단어를 일정 길이마다 잘라서 강제 줄바꿈 힌트 삽입
-def force_wrap_long_words(sentence, max_word_length=40):
+# 긴 단어를 강제로 잘라서 줄바꿈 힌트 추가
+def force_wrap_long_words(sentence, max_word_length=30):
     words = sentence.split(" ")
     wrapped = []
     for word in words:
         if len(word) > max_word_length:
             chunks = [word[i:i+max_word_length] for i in range(0, len(word), max_word_length)]
-            wrapped.append("\n".join(chunks))  # 실제 줄바꿈 삽입
+            wrapped.append("\n".join(chunks))
         else:
             wrapped.append(word)
     return " ".join(wrapped)
 
-# 문장이 몇 줄을 차지할지 계산 (한 줄에 약 35자 기준)
-def sentence_line_count(sentence, chars_per_line=35):
-    return max(1, len(textwrap.wrap(sentence, width=chars_per_line)))
+# 문장이 차지할 줄 수 계산
+def sentence_line_count(sentence, max_chars_per_line=35):
+    return max(1, len(textwrap.wrap(sentence, width=max_chars_per_line, break_long_words=False)))
 
-# 슬라이드당 줄 수 제한해서 문장 분할
-def split_to_slide_chunks(sentences, max_total_lines=5):
-    chunks = []
-    current_chunk = []
+# 문장 단위로 나누고 슬라이드당 최대 줄 수 제한
+def group_sentences_to_slides(sentences, max_lines_per_slide=5):
+    slides = []
+    current_slide = []
     current_lines = 0
 
     for sentence in sentences:
         sentence = force_wrap_long_words(sentence)
         lines = sentence_line_count(sentence)
-        if current_lines + lines > max_total_lines:
-            chunks.append(current_chunk)
-            current_chunk = [sentence]
+        if current_lines + lines > max_lines_per_slide:
+            slides.append(current_slide)
+            current_slide = [sentence]
             current_lines = lines
         else:
-            current_chunk.append(sentence)
+            current_slide.append(sentence)
             current_lines += lines
 
-    if current_chunk:
-        chunks.append(current_chunk)
+    if current_slide:
+        slides.append(current_slide)
 
-    return chunks
+    return slides
 
 # 전체 입력을 문장 단위로 분해
 def split_text(text):
-    paragraphs = text.strip().split("\n")
-    sentences = []
-    for para in paragraphs:
-        if not para.strip():
-            continue
-        parts = re.split(r'(?<=[.!?]) +', para.strip())
-        sentences.extend([s.strip() for s in parts if s.strip()])
-    return sentences
+    sentences = re.split(r'(?<=[.!?])\s+', text.strip())
+    return [s.strip() for s in sentences if s.strip()]
 
-# PPT 생성
+# PPT 생성 함수
 def create_ppt(slides):
     prs = Presentation()
     prs.slide_width = Inches(13.33)
@@ -80,7 +74,7 @@ def create_ppt(slides):
             p.font.color.rgb = RGBColor(0, 0, 0)
             p.alignment = PP_ALIGN.CENTER
 
-        # 페이지 번호 (우측 하단)
+        # 페이지 번호
         footer_box = slide.shapes.add_textbox(Inches(12.0), Inches(7.0), Inches(1), Inches(0.4))
         footer_frame = footer_box.text_frame
         footer_frame.text = str(idx)
@@ -94,13 +88,13 @@ def create_ppt(slides):
 
 # Streamlit UI
 st.set_page_config(page_title="Paydo Kitty", layout="centered")
-st.title("📄 Paydo Kitty - 텍스트를 PPT로 변환")
+st.title("🎤 Paydo Kitty - 촬영용 대본 PPT 생성기")
 
-text_input = st.text_area("대본을 입력하세요:", height=300)
+text_input = st.text_area("촬영용 대본을 입력하세요:", height=300)
 
 if st.button("PPT 만들기") and text_input.strip():
     sentences = split_text(text_input)
-    slides = split_to_slide_chunks(sentences)
+    slides = group_sentences_to_slides(sentences)
     ppt = create_ppt(slides)
 
     ppt_io = io.BytesIO()
@@ -110,6 +104,6 @@ if st.button("PPT 만들기") and text_input.strip():
     st.download_button(
         label="📥 PPT 다운로드",
         data=ppt_io,
-        file_name="paydo_kitty_output.pptx",
+        file_name="paydo_kitty_script.pptx",
         mime="application/vnd.openxmlformats-officedocument.presentationml.presentation"
     )
