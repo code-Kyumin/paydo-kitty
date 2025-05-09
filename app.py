@@ -16,7 +16,7 @@ def extract_text_from_word(file):
     full_text = []
     for paragraph in doc.paragraphs:
         full_text.append(paragraph.text)
-    return '\n'.join(full_text)
+    return "\n".join(full_text)
 
 
 # 문장이 차지할 줄 수 계산 (단어 잘림 방지)
@@ -86,11 +86,17 @@ def split_and_group_text(
 
 
 # PPT 생성 함수
-def create_ppt(slide_texts, max_chars_per_line_in_ppt=18, font_size=54):
+def create_ppt(
+    slide_texts,
+    max_chars_per_line_in_ppt=18,
+    font_size=54,
+    max_lines_per_slide=5,  # [추가] 최대 줄 수 인자 받음
+):
     prs = Presentation()
     prs.slide_width = Inches(13.33)
     prs.slide_height = Inches(7.5)
     total_slides = len(slide_texts)
+    split_warning_slides = []  # [추가] 분할 경고 슬라이드 번호 저장
 
     for i, text in enumerate(slide_texts):
         slide = prs.slides.add_slide(prs.slide_layouts[6])
@@ -101,12 +107,21 @@ def create_ppt(slide_texts, max_chars_per_line_in_ppt=18, font_size=54):
         tf.clear()
 
         lines = textwrap.wrap(text, width=max_chars_per_line_in_ppt, break_long_words=False)
-        p = tf.paragraphs[0]
-        p.text = "\n".join(lines)
-        p.font.size = Pt(font_size)
-        p.font.name = "Noto Color Emoji"
-        p.font.bold = True
-        p.alignment = PP_ALIGN.CENTER
+        if len(lines) > max_lines_per_slide:  # [수정] 최대 줄 수 초과 확인
+            split_warning_slides.append(i + 1)  # 슬라이드 번호 저장
+            p = tf.paragraphs[0]
+            p.text = "⚠️ " + "\n".join(lines)  # 경고 표시 추가
+            p.font.size = Pt(font_size)
+            p.font.name = "Noto Color Emoji"
+            p.font.bold = True
+            p.alignment = PP_ALIGN.CENTER
+        else:
+            p = tf.paragraphs[0]
+            p.text = "\n".join(lines)
+            p.font.size = Pt(font_size)
+            p.font.name = "Noto Color Emoji"
+            p.font.bold = True
+            p.alignment = PP_ALIGN.CENTER
 
         # 페이지 번호 (현재 페이지/전체 페이지)
         footer_box = slide.shapes.add_textbox(Inches(11.5), Inches(7.0), Inches(1.5), Inches(0.4))
@@ -125,7 +140,7 @@ def create_ppt(slide_texts, max_chars_per_line_in_ppt=18, font_size=54):
     prs.save(ppt_io)
     ppt_io.seek(0)
 
-    return ppt_io
+    return ppt_io, split_warning_slides  # [수정] 분할 경고 슬라이드 번호 반환
 
 
 def add_end_mark(slide):
@@ -194,10 +209,11 @@ if st.button("🚀 PPT 만들기", key="create_ppt_button"):
         min_chars_per_line=min_chars_per_line_input,
         max_chars_per_line_in_ppt=max_chars_per_line_ppt_input,
     )
-    ppt_file = create_ppt(
+    ppt_file, split_warning_slides = create_ppt(
         slide_texts,
         max_chars_per_line_in_ppt=max_chars_per_line_ppt_input,
         font_size=font_size_input,
+        max_lines_per_slide=max_lines_per_slide_input,  # [추가] 최대 줄 수 전달
     )
 
     st.download_button(
@@ -211,4 +227,9 @@ if st.button("🚀 PPT 만들기", key="create_ppt_button"):
     if split_occurred:
         st.info(
             "⚠️ 긴 문장으로 인해 일부 슬라이드가 자동으로 분할되었습니다. PPT를 확인하여 어색한 부분이 있는지 검토해주세요."
+        )
+
+    if split_warning_slides:  # [추가] 경고 슬라이드 있는 경우 알림
+        st.warning(
+            f"❗️ 일부 슬라이드({split_warning_slides})는 최대 줄 수를 초과했습니다. PPT를 확인하여 텍스트가 잘리는지 검토해주세요."
         )
