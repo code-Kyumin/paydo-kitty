@@ -130,34 +130,3 @@ def add_end_mark(slide):
 
 # Streamlit UI
 st.set_page_config(page_title="Paydo Kitty", layout="centered")
-st.title("🎤 Paydo Kitty - 촬영용 대본 PPT 생성기")
-
-text_input = st.text_area("촬영용 대본을 입력하세요:", height=300, key="text_input_area")
-
-# UI에서 사용자로부터 직접 값을 입력받도록 슬라이더 추가
-max_lines_per_slide_input = st.slider("슬라이드당 최대 줄 수:", min_value=1, max_value=10, value=5, key="max_lines_slider")
-max_chars_per_line_input = st.slider("한 줄당 최대 글자 수 (줄 수 계산 시):", min_value=10, max_value=100, value=35,
-                                     key="max_chars_slider_logic")
-# PPT 텍스트 박스 내에서의 줄바꿈 글자 수 (실제 PPT에 표시될 때 적용)
-max_chars_per_line_ppt_input = st.slider("한 줄당 최대 글자 수 (PPT 표시용):", min_value=10, max_value=100, value=20,
-                                         key="max_chars_slider_ppt")
-
-if st.button("PPT 만들기", key="create_ppt_button") and text_input.strip():
-    sentences = split_text(text_input)
-    ppt = create_ppt(sentences, max_chars_per_line_ppt=max_chars_per_line_ppt_input,
-                      max_lines_per_slide=max_lines_per_slide_input)
-
-    if ppt:
-        ppt_io = io.BytesIO()
-        ppt.save(ppt_io)
-        ppt_io.seek(0)
-
-        st.download_button(
-            label="📥 PPT 다운로드",
-            data=ppt_io,
-            file_name="paydo_kitty_script.pptx",
-            mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
-            key="download_button"
-        )
-    else:
-        st.error("PPT 생성에 실패했습니다. 입력 데이터를 확인하거나 잠시 후 다시 시도해주세요.")
