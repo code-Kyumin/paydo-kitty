@@ -193,4 +193,4 @@ if st.button("🚀 PPT 만들기", key="create_ppt_button") and text_input.strip
             key="download_button"
         )
     else:
-        st.error("❌ PPT 생성에 실패했습니다.")s
+        st.error("❌ PPT 생성에 실패했습니다.")
