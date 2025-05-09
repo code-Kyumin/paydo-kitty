@@ -21,6 +21,8 @@ def group_sentences_to_slides(sentences, max_lines_per_slide=5, max_chars_per_li
     current_slide_lines = 0
 
     for sentence in sentences:
+        # 문장이 길 경우, 문장 자체를 여러 줄로 나누어 계산합니다.
+        # 이 때, 단어가 잘리지 않도록 합니다.
         lines_for_sentence = sentence_line_count(sentence, max_chars_per_line)
 
         if current_slide_lines + lines_for_sentence <= max_lines_per_slide:
