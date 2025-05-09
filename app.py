@@ -181,8 +181,7 @@ if st.button("🚀 PPT 만들기", key="create_ppt_button") and text_input.strip
     slide_texts = split_and_group_text(text_input, separate_pattern=separate_pattern_input,
                                         max_lines_per_slide=max_lines_per_slide_input,
                                         min_chars_per_line=min_chars_per_line_input,
-                                        max_chars_per_line=max_chars_per_line_input,
-                                        max_chars_per_line=max_chars_per_line_input)
+                                        max_chars_per_line=max_chars_per_line_input) # 오류 수정
     ppt = create_ppt(slide_texts, max_chars_per_line_in_ppt=max_chars_per_line_ppt_input,
                     max_lines_per_slide=max_lines_per_slide_input)
 
