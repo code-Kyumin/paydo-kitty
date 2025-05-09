@@ -19,19 +19,19 @@ def split_text(text):
     sentences = re.split(r'(?<!\w\.\w.)(?<![A-Z][a-z]\.)(?<=[.!?])\s+', text.strip())
     return [s.strip() for s in sentences if s.strip()]
 
-# 슬라이드 생성 및 분할 로직
+# 슬라이드 생성 및 분할 로직 (완전히 재작성)
 def group_sentences_to_slides(sentences, max_chars_per_line, max_lines_per_slide, min_chars_per_line):
     slides_data = []
-    current_slide_text = ""
+    current_slide_text = []
     current_slide_lines = 0
 
     for sentence in sentences:
         # 문장 부호로 끝나지 않으면 별도 슬라이드로 처리
         if not re.search(r'[.!?]$', sentence.strip()):
             if current_slide_text:
-                slides_data.append(current_slide_text.strip())
+                slides_data.append("\n".join(current_slide_text))
             slides_data.append(sentence.strip())
-            current_slide_text = ""
+            current_slide_text = []
             current_slide_lines = 0
             continue
 
@@ -40,26 +40,24 @@ def group_sentences_to_slides(sentences, max_chars_per_line, max_lines_per_slide
         # 현재 슬라이드에 추가해도 최대 줄 수를 넘지 않는 경우
         if current_slide_lines + lines_needed <= max_lines_per_slide:
             # 최소 글자 수 기준을 위반하지 않는 경우
-            if len(sentence) >= min_chars_per_line or current_slide_lines == 0:
-                if current_slide_text:
-                    current_slide_text += "\n"
-                current_slide_text += sentence
+            if len(sentence) >= min_chars_per_line or not current_slide_text:
+                current_slide_text.append(sentence)
                 current_slide_lines += lines_needed
             # 최소 글자 수 기준을 위반하는 경우, 새 슬라이드
             else:
-                if current_slide_text:
-                    slides_data.append(current_slide_text.strip())
-                current_slide_text = sentence
+                slides_data.append("\n".join(current_slide_text))
+                slides_data.append(sentence)
+                current_slide_text = []
                 current_slide_lines = lines_needed
         # 현재 슬라이드에 추가하면 최대 줄 수를 넘는 경우, 새 슬라이드
         else:
-            if current_slide_text:
-                slides_data.append(current_slide_text.strip())
-            current_slide_text = sentence
+            slides_data.append("\n".join(current_slide_text))
+            slides_data.append(sentence)
+            current_slide_text = []
             current_slide_lines = lines_needed
 
     if current_slide_text:
-        slides_data.append(current_slide_text.strip())
+        slides_data.append("\n".join(current_slide_text))
 
     return slides_data
 
@@ -73,19 +71,7 @@ def create_slide(prs, text, current_idx, total_slides, max_chars_per_line, min_c
     tf.clear()
 
     p = tf.paragraphs[0]
-    # 최소 글자 수 미만이면 강제 줄바꿈 처리
-    if len(text) < min_chars_per_line:
-        # 특수 문자/기호로만 이루어진 경우 예외 처리
-        if re.search(r'^[^\w\s]+$', text):
-            p.text = text
-        else:
-            wrapped_text = textwrap.wrap(text, width=max_chars_per_line, break_long_words=True,
-                                         fix_sentence_endings=True, replace_whitespace=False)
-            p.text = "\n".join(wrapped_text)
-    else:
-        wrapped_text = textwrap.fill(text, width=max_chars_per_line, break_long_words=False,
-                                     fix_sentence_endings=True, replace_whitespace=False)
-        p.text = wrapped_text
+    p.text = text  # textwrap.wrap 제거. group_sentences_to_slides에서 처리됨
 
     p.font.size = Pt(54)
     p.font.name = '맑은 고딕'
