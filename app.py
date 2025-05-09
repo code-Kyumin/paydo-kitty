@@ -14,8 +14,13 @@ def split_text(text):
     return [s.strip() for s in sentences]
 
 def is_sentence(text):
-    """텍스트가 문장인지 확인합니다."""
-    return bool(re.search(r'[.!?]', text))
+    """텍스트가 문장인지 확인합니다. 🧐"""
+    # 더 정확한 문장 판단을 위한 규칙 추가
+    if re.match(r'^[\w\s\-]+\s*\d{2}-\d{2}\([A-Z]\)', text):  # "단어-숫자-숫자(영문자)" 패턴
+        return False
+    if len(text.split()) < 3 and not re.search(r'[.!?]', text):  # 짧고 문장 부호 없음
+        return False
+    return bool(re.search(r'[.!?]', text))  # 기본 문장 부호 검사
 
 def split_long_sentence(sentence, min_chars, max_chars_per_line):
     """긴 문장을 최소/최대 글자 수 기준에 맞게 분할합니다. 📏"""
@@ -54,15 +59,18 @@ def group_sentences_to_slides(sentences, max_lines_per_slide, max_chars_per_line
             lines = split_long_sentence(sentence, min_chars, max_chars_per_line)
             line_count = len(lines)
 
-            if current_line_count + line_count > max_lines_per_slide and current_slide_text:
-                slides.append(current_slide_text.strip())
-                current_slide_text = "\n".join(lines)
-                current_line_count = line_count
-            else:
+            # 현재 슬라이드에 추가해도 최대 줄 수를 넘지 않는지 확인
+            if current_line_count + line_count <= max_lines_per_slide:
                 if current_slide_text:
                     current_slide_text += "\n"  # Add newline between sentences
                 current_slide_text += "\n".join(lines)
                 current_line_count += line_count
+            else:
+                # 넘으면 현재 슬라이드 마무리하고 새 슬라이드 시작
+                if current_slide_text:
+                    slides.append(current_slide_text.strip())
+                current_slide_text = "\n".join(lines)
+                current_line_count = line_count
 
     if current_slide_text:
         slides.append(current_slide_text.strip())
@@ -100,7 +108,7 @@ def create_ppt(slide_texts, max_chars_per_line):
     return prs
 
 def add_page_number(slide, current_idx, total_slides):
-    """슬라이드에 페이지 번호를 추가합니다."""
+    """슬라이드에 페이지 번호를 추가합니다. 🔢"""
     footer_box = slide.shapes.add_textbox(Inches(11.5), Inches(7.0), Inches(1.5), Inches(0.4))
     footer_frame = footer_box.text_frame
     footer_frame.text = f"{current_idx} / {total_slides}"
@@ -111,7 +119,7 @@ def add_page_number(slide, current_idx, total_slides):
     footer_p.alignment = PP_ALIGN.RIGHT
 
 def add_end_mark(slide):
-    """슬라이드에 '끝' 표시를 추가합니다."""
+    """슬라이드에 '끝' 표시를 추가합니다. 🏁"""
 
     end_shape = slide.shapes.add_shape(
         MSO_SHAPE.RECTANGLE,
