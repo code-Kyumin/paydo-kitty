@@ -170,17 +170,18 @@ def add_end_mark(slide):
 
 # Streamlit UI
 st.set_page_config(page_title="Paydo", layout="centered")
-st.title("🎬 Paydo 촬영 대본 PPT 자동 생성기") # 제목 변경 및 이모지 추가
+st.title("🎬 Paydo 촬영 대본 PPT 자동 생성기")
 
-text_input = st.text_area("📝 촬영 대본을 입력하세요:", height=300, key="text_input_area") # 입력창 설명에 이모지 추가
+text_input = st.text_area("📝 촬영 대본을 입력하세요:", height=300, key="text_input_area")
 
 # UI에서 사용자로부터 직접 값을 입력받도록 슬라이더 추가
-max_lines_per_slide_input = st.slider("📄 슬라이드당 최대 줄 수:", min_value=1, max_value=10, value=5, key="max_lines_slider") # 슬라이더 설명에 이모지 추가
-max_chars_per_line_input = st.slider("🔡 한 줄당 최대 글자 수 (계산 시):", min_value=10, max_value=100, value=35, key="max_chars_slider_logic") # 슬라이더 설명에 이모지 추가
-max_chars_per_line_ppt_input = st.slider("🔤 한 줄당 최대 글자 수 (PPT 표시):", min_value=10, max_value=100, value=35, key="max_chars_slider_ppt") # 슬라이더 설명에 이모지 추가
+max_lines_per_slide_input = st.slider("📄 슬라이드당 최대 줄 수:", min_value=1, max_value=10, value=4, key="max_lines_slider")
+max_chars_per_line_input = st.slider("🔡 한 줄당 최대 글자 수 (계산 시):", min_value=3, max_value=20, value=18, key="max_chars_slider_logic")
+# PPT 텍스트 박스 내에서의 줄바꿈 글자 수 (실제 PPT에 표시될 때 적용)
+max_chars_per_line_ppt_input = st.slider("🔤 한 줄당 최대 글자 수 (PPT 표시):", min_value=1, max_value=10, value=4, key="max_chars_slider_ppt")
 
 
-if st.button("🚀 PPT 만들기", key="create_ppt_button") and text_input.strip(): # 버튼에 로켓 이모지 추가
+if st.button("🚀 PPT 만들기", key="create_ppt_button") and text_input.strip():
     sentences = split_text(text_input)
     # 사용자가 UI에서 설정한 값을 group_sentences_to_slides 함수에 전달
     slide_texts = group_sentences_to_slides(sentences, max_lines_per_slide=max_lines_per_slide_input, max_chars_per_line=max_chars_per_line_input)
@@ -192,11 +193,11 @@ if st.button("🚀 PPT 만들기", key="create_ppt_button") and text_input.strip
         ppt_io.seek(0)
 
         st.download_button(
-            label="📥 PPT 다운로드", # 다운로드 버튼에 상자 이모지 추가
+            label="📥 PPT 다운로드",
             data=ppt_io,
-            file_name="paydo_script.pptx", # 파일명 변경
+            file_name="paydo_script.pptx",
             mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
             key="download_button"
         )
     else:
-        st.error("❌ PPT 생성에 실패했습니다.") # 오류 메시지에 엑스표시 이모지 추가
+        st.error("❌ PPT 생성에 실패했습니다.")
