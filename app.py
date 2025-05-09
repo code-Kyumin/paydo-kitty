@@ -36,19 +36,31 @@ def split_and_group_text_ko(
     original_sentence_flags = (
         []
     )  # [추가] 원래 문장 여부 추적 (True: 원래 문장, False: 분할된 문장)
+    
+    # [수정] 중복 문장 제거를 위한 set
+    seen_sentences = set()
 
     for sentence in sentences:
+        # [수정] 문장 앞뒤 공백 제거 및 중복 확인
+        sentence = sentence.strip()
+        if sentence in seen_sentences:
+            continue
+        seen_sentences.add(sentence)
+        
         words = sentence.split()
         lines_needed = sentence_line_count(sentence, max_chars_per_line_in_ppt)
 
         if current_slide_lines + lines_needed <= max_lines_per_slide:
-            current_slide_text += sentence + " "
+            # [수정] 텍스트가 None이 아닌 경우에만 추가
+            if current_slide_text:
+                current_slide_text += " "
+            current_slide_text += sentence
             current_slide_lines += lines_needed
             original_sentence_flags.append(True)  # 원래 문장
         else:
             # 슬라이드 분할 로직 (KoNLPy 활용)
             split_points = []
-            pos_result = kkma.pos(current_slide_text + sentence)  # 형태소 분석
+            pos_result = kkma.pos(current_slide_text + " " + sentence)  # 형태소 분석
             for i, (word, pos) in enumerate(pos_result):
                 # 조사나 어미 앞, 접속사 뒤에서 분할 시도
                 if pos.startswith("J") or pos.startswith("E") or (
@@ -71,11 +83,12 @@ def split_and_group_text_ko(
                     default=0,
                 )
                 if best_split_idx > 0:
-                    slides.append(
-                        "".join(p[0] for p in pos_result[:best_split_idx]).strip()
-                    )
+                    split_text = "".join(p[0] for p in pos_result[:best_split_idx]).strip()
+                    # [수정] 분할된 텍스트가 None이 아닌 경우에만 추가
+                    if split_text:
+                        slides.append(split_text)
                     current_slide_text = (
-                        "".join(p[0] for p in pos_result[best_split_idx:]).strip() + " "
+                        "".join(p[0] for p in pos_result[best_split_idx:]).strip()
                     )
                     current_slide_lines = sentence_line_count(
                         current_slide_text, max_chars_per_line_in_ppt
@@ -86,7 +99,7 @@ def split_and_group_text_ko(
                 else:
                     # 분할 가능한 지점이 없으면, 단어 단위로 분할
                     slides.append(current_slide_text.strip())
-                    current_slide_text = sentence + " "
+                    current_slide_text = sentence
                     current_slide_lines = lines_needed
                     original_sentence_flags.append(
                         False
@@ -94,11 +107,15 @@ def split_and_group_text_ko(
             else:
                 # 분할 가능한 지점이 없으면, 단어 단위로 분할
                 slides.append(current_slide_text.strip())
-                current_slide_text = sentence + " "
+                current_slide_text = sentence
                 current_slide_lines = lines_needed
                 original_sentence_flags.append(
                     False
                 )  # [수정] 분할된 문장으로 표시
+        # [수정] 다음 슬라이드를 위해 초기화
+        current_slide_text = current_slide_text.strip()
+        if current_slide_text:
+            current_slide_text += " "
 
     if current_slide_text:
         slides.append(current_slide_text.strip())
@@ -224,9 +241,10 @@ def add_check_needed_shape(slide):
     check_text_frame = check_shape.text_frame
     check_text_frame.clear()
     check_paragraph = check_text_frame.paragraphs[0]
-    check_paragraph.text = "확인 필요"
+    check_paragraph.text = "확인 필요!"  # 텍스트에 느낌표 추가
     check_paragraph.font.size = Pt(18)
     check_paragraph.font.bold = True
+    check_paragraph.font.color.rgb = RGBColor(0, 0, 0)  # 검정색 글자
     check_text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.MIDDLE
     check_text_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
 
