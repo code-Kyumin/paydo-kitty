@@ -2,6 +2,7 @@ import streamlit as st
 from pptx import Presentation
 from pptx.util import Inches, Pt
 from pptx.enum.text import PP_ALIGN, MSO_VERTICAL_ANCHOR
+from pptx.dml.color import RGBColor  # RGBColor import 추가
 import io
 import re
 import textwrap
