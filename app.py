@@ -63,17 +63,17 @@ def create_ppt(slide_texts, max_chars_per_line_in_ppt=35): # PPT 내부 텍스�
         p = tf.paragraphs[0] # 첫 번째 단락 사용
         # textwrap.fill을 사용하여 단어 단위로 줄바꿈 된 텍스트를 만듭니다.
         # 이 때, break_long_words=False로 설정하여 단어가 중간에 잘리는 것을 방지합니다.
-        wrapped_text = textwrap.fill(text_for_slide, width=max_chars_per_line_in_ppt, break_long_words=False, fix_sentence_endings=True)
+        wrapped_text = textwrap.fill(text_for_slide, width=max_chars_per_line_in_ppt, break_long_words=False, fix_sentence_endings=True, replace_whitespace=False)
         p.text = wrapped_text
 
         p.font.size = Pt(54)
         p.font.name = '맑은 고딕'
         p.font.bold = True
         p.font.color.rgb = RGBColor(0, 0, 0)
-        p.alignment = PP_ALIGN.CENTER
+        p.alignment = PP_ALIGN.LEFT # 왼쪽 정렬
 
-        # 텍스트 프레임 내에서 상하 정렬 (가운데 정렬을 원할 경우)
-        tf.vertical_anchor = MSO_VERTICAL_ANCHOR.MIDDLE # 텍스트를 수직 중앙에 배치
+        # 텍스트 프레임 내에서 상하 정렬 (상단 정렬)
+        tf.vertical_anchor = MSO_VERTICAL_ANCHOR.TOP
 
         # 페이지 번호
         footer_box = slide.shapes.add_textbox(Inches(12.0), Inches(7.0), Inches(1), Inches(0.4))
@@ -105,7 +105,7 @@ if st.button("PPT 만들기", key="create_ppt_button") and text_input.strip():
     # 사용자가 UI에서 설정한 값을 group_sentences_to_slides 함수에 전달
     slide_texts = group_sentences_to_slides(sentences, max_lines_per_slide=max_lines_per_slide_input, max_chars_per_line=max_chars_per_line_input)
     # 사용자가 UI에서 설정한 PPT 표시용 줄당 글자 수를 create_ppt 함수에 전달
-    ppt = create_ppt(slide_texts, max_chars_per_line_in_ppt=max_chars_per_line_ppt_input)
+    ppt = create_ppt(slide_texts, max_chars_per_line_ppt=max_chars_per_line_ppt_input)
 
     ppt_io = io.BytesIO()
     ppt.save(ppt_io)
