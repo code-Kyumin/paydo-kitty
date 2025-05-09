@@ -2,18 +2,16 @@ import streamlit as st
 from pptx import Presentation
 from pptx.util import Inches, Pt
 from pptx.enum.text import PP_ALIGN, MSO_VERTICAL_ANCHOR
-from pptx.dml.color import RGBColor
 import io
 import re
-
-# Functions from previous code (with minor adjustments for clarity)
+import textwrap
 
 def split_text(text):
     """텍스트를 문장 단위로 분리합니다."""
     sentences = re.split(r'(?<=[.!?])\s+', text.strip())
     return [s.strip() for s in sentences]
 
-def group_sentences_to_slides(sentences, max_lines_per_slide=5, max_chars_per_line=35):
+def group_sentences_to_slides(sentences, max_lines_per_slide, max_chars_per_line):
     """문장들을 슬라이드에 맞게 그룹화합니다."""
 
     slides = []
@@ -38,7 +36,7 @@ def group_sentences_to_slides(sentences, max_lines_per_slide=5, max_chars_per_li
     
     return slides
 
-def create_ppt(slide_texts, max_chars_per_line=35):
+def create_ppt(slide_texts, max_chars_per_line):
     """슬라이드 텍스트를 사용하여 PPT를 생성합니다."""
 
     prs = Presentation()
@@ -63,19 +61,25 @@ def create_ppt(slide_texts, max_chars_per_line=35):
 # Streamlit UI
 st.title("PPT 생성기")
 text_input = st.text_area("텍스트 입력:", height=200)
-max_lines_per_slide = st.slider("최대 줄 수 (슬라이드 당)", 3, 10, 5)
-max_chars_per_line = st.slider("최대 글자 수 (줄 당)", 20, 100, 40)
+
+# Updated slider ranges and defaults
+max_lines_per_slide = st.slider("최대 줄 수 (슬라이드 당)", 1, 10, 4)
+max_chars_per_line = st.slider("최대 글자 수 (줄 당)", 3, 20, 18)
+min_chars = st.number_input("최소 글자 수", min_value=1, value=100) # Added minimum characters input
 
 if st.button("PPT 생성"):
     if text_input:
-        sentences = split_text(text_input)
-        slide_texts = group_sentences_to_slides(sentences, max_lines_per_slide, max_chars_per_line)
-        prs = create_ppt(slide_texts, max_chars_per_line)
-        
-        ppt_bytes = io.BytesIO()
-        prs.save(ppt_bytes)
-        ppt_bytes.seek(0)
-        
-        st.download_button(label="PPT 다운로드", data=ppt_bytes, file_name="output.pptx")
+        if len(text_input) < min_chars: # Check against minimum characters
+            st.warning(f"입력 텍스트는 최소 {min_chars} 글자 이상이어야 합니다.")
+        else:
+            sentences = split_text(text_input)
+            slide_texts = group_sentences_to_slides(sentences, max_lines_per_slide, max_chars_per_line)
+            prs = create_ppt(slide_texts, max_chars_per_line)
+            
+            ppt_bytes = io.BytesIO()
+            prs.save(ppt_bytes)
+            ppt_bytes.seek(0)
+            
+            st.download_button(label="PPT 다운로드", data=ppt_bytes, file_name="output.pptx")
     else:
         st.warning("텍스트를 입력해주세요.")
