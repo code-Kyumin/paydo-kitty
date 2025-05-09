@@ -194,13 +194,12 @@ max_chars_per_line_ppt_input = st.slider("한 줄당 최대 글자 수 (PPT 표�
 
 
 if st.button("PPT 만들기", key="create_ppt_button") and text_input.strip():
-    sentences = split_text(text_input)
-    # 사용자가 UI에서 설정한 값을 group_sentences_to_slides 함수에 전달
+    # 수정된 함수 호출
     slide_texts = split_and_group_text(text_input, separate_pattern=separate_pattern_input,
                                         max_lines_per_slide=max_lines_per_slide_input,
                                         max_chars_per_line=max_chars_per_line_input)
     ppt = create_ppt(slide_texts, max_chars_per_line_in_ppt=max_chars_per_line_ppt_input,
-                    max_lines_per_slide=max_lines_per_slide_input) # max_lines_per_slide 도 전달
+                    max_lines_per_slide=max_lines_per_slide_input)
 
     if ppt:
         ppt_io = io.BytesIO()
