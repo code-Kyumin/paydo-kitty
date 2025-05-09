@@ -20,15 +20,21 @@ def split_text(text):
     return [s.strip() for s in sentences if s.strip()]
 
 # 슬라이드 생성 및 분할 로직
-def group_sentences_to_slides(sentences, max_chars_per_line, max_lines_per_slide):
+def group_sentences_to_slides(sentences, max_chars_per_line, max_lines_per_slide, min_chars_per_line):
     slides_data = []
     current_slide_text = ""
     current_slide_lines = 0
 
     for sentence in sentences:
         lines_needed = sentence_line_count(sentence, max_chars_per_line)
-
-        if current_slide_lines + lines_needed > max_lines_per_slide and current_slide_text:
+        # 현재 문장이 최소 글자 수 기준을 위반하는지 확인
+        if len(sentence) < min_chars_per_line and current_slide_lines > 0:
+            # 현재 슬라이드에 문장이 있으면 새 슬라이드
+            if current_slide_text:
+                slides_data.append(current_slide_text.strip())
+            current_slide_text = sentence
+            current_slide_lines = lines_needed
+        elif current_slide_lines + lines_needed > max_lines_per_slide and current_slide_text:
             slides_data.append(current_slide_text.strip())
             current_slide_text = sentence
             current_slide_lines = lines_needed
@@ -58,16 +64,6 @@ def create_slide(prs, text, current_idx, total_slides, max_chars_per_line, min_c
         p = tf.paragraphs[0]
         p.text = text
     else:
-        # 최대/최소 글자 수 충돌 처리
-        if max_chars_per_line < min_chars_per_line:
-            split_pos = (max_chars_per_line + min_chars_per_line) // 2
-            last_space = text[:split_pos].rfind(' ')
-            if last_space != -1 and last_space >= min_chars_per_line:
-                text = text[:last_space] + '\n' + text[last_space + 1:]
-            # 띄어쓰기가 없거나 최소 글자 수 미만이면 최대 글자 수 기준으로 자름
-            else:
-                text = text[:max_chars_per_line] + '\n' + text[max_chars_per_line:]
-
         wrapped_text = textwrap.fill(text, width=max_chars_per_line, break_long_words=False,
                                      fix_sentence_endings=True, replace_whitespace=False)
         p = tf.paragraphs[0]
@@ -138,7 +134,7 @@ min_chars_per_line_input = st.slider("한 줄당 최소 글자 수:", min_value=
 
 if st.button("PPT 만들기", key="create_ppt_button") and text_input.strip():
     sentences = split_text(text_input)
-    slide_texts = group_sentences_to_slides(sentences, max_chars_per_line_input, max_lines_per_slide_input)
+    slide_texts = group_sentences_to_slides(sentences, max_chars_per_line_input, max_lines_per_slide_input, min_chars_per_line_input)
     ppt = create_ppt(slide_texts, max_chars_per_line_input, min_chars_per_line_input)
 
     if ppt:
