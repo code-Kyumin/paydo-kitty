@@ -257,6 +257,7 @@ font_size_input = st.slider("🅰️ 폰트 크기:", min_value=10, max_value=60
 # JVM 초기화
 initialize_jvm()
 
+# PPT 생성 버튼을 항상 표시하도록 위치를 변경
 if st.button("🚀 PPT 만들기", key="create_ppt_button"):
     if uploaded_file is not None:
         text = extract_text_from_word(uploaded_file)
