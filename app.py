@@ -45,18 +45,33 @@ def group_sentences_to_slides(sentences, max_chars_per_line, max_lines_per_slide
     return slides_data
 
 # 실제 PPT 슬라이드 생성 함수
-def create_slide(prs, text, current_idx, total_slides, max_chars_per_line):
+def create_slide(prs, text, current_idx, total_slides, max_chars_per_line, min_chars_per_line):
     slide = prs.slides.add_slide(prs.slide_layouts[6])
     textbox = slide.shapes.add_textbox(Inches(0.5), Inches(0.3), Inches(12.33), Inches(6.2))
     tf = textbox.text_frame
-    tf.vertical_anchor = MSO_VERTICAL_ANCHOR.TOP
+    tf.vertical_anchor = MSO_VERTICAL_ANCHOR.TOP  # 상단 정렬 명시적 설정
     tf.word_wrap = True
     tf.clear()
 
-    p = tf.paragraphs[0]
-    wrapped_text = textwrap.fill(text, width=max_chars_per_line, break_long_words=False,
-                                 fix_sentence_endings=True, replace_whitespace=False)
-    p.text = wrapped_text
+    # 최소 글자 수 미만이면 줄바꿈 없이 그대로 출력
+    if len(text) < min_chars_per_line:
+        p = tf.paragraphs[0]
+        p.text = text
+    else:
+        # 최대/최소 글자 수 충돌 처리
+        if max_chars_per_line < min_chars_per_line:
+            split_pos = (max_chars_per_line + min_chars_per_line) // 2
+            last_space = text[:split_pos].rfind(' ')
+            if last_space != -1 and last_space >= min_chars_per_line:
+                text = text[:last_space] + '\n' + text[last_space + 1:]
+            # 띄어쓰기가 없거나 최소 글자 수 미만이면 최대 글자 수 기준으로 자름
+            else:
+                text = text[:max_chars_per_line] + '\n' + text[max_chars_per_line:]
+
+        wrapped_text = textwrap.fill(text, width=max_chars_per_line, break_long_words=False,
+                                     fix_sentence_endings=True, replace_whitespace=False)
+        p = tf.paragraphs[0]
+        p.text = wrapped_text
 
     p.font.size = Pt(54)
     p.font.name = '맑은 고딕'
@@ -64,7 +79,8 @@ def create_slide(prs, text, current_idx, total_slides, max_chars_per_line):
     p.font.color.rgb = RGBColor(0, 0, 0)
     p.alignment = PP_ALIGN.CENTER
 
-    tf.vertical_anchor = MSO_VERTICAL_ANCHOR.MIDDLE
+    tf.vertical_anchor = MSO_VERTICAL_ANCHOR.TOP  # 텍스트 프레임 자체도 상단에 붙임
+    tf.paragraphs[0].vertical_anchor = MSO_VERTICAL_ANCHOR.MIDDLE
 
     # 페이지 번호 (현재 페이지/전체 페이지)
     footer_box = slide.shapes.add_textbox(Inches(11.5), Inches(7.0), Inches(1.5), Inches(0.4))
@@ -98,14 +114,14 @@ def add_end_mark(slide):
     end_text_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
 
 # PPT 생성 함수
-def create_ppt(slide_texts, max_chars_per_line):
+def create_ppt(slide_texts, max_chars_per_line, min_chars_per_line):
     prs = Presentation()
     prs.slide_width = Inches(13.33)
     prs.slide_height = Inches(7.5)
 
     total_slides = len(slide_texts)  # 총 슬라이드 수
     for idx, text in enumerate(slide_texts, 1):
-        create_slide(prs, text, idx, total_slides, max_chars_per_line)
+        create_slide(prs, text, idx, total_slides, max_chars_per_line, min_chars_per_line)
 
     return prs
 
@@ -118,11 +134,12 @@ text_input = st.text_area("촬영용 대본을 입력하세요:", height=300, ke
 # UI에서 사용자로부터 직접 값을 입력받도록 슬라이더 추가
 max_lines_per_slide_input = st.slider("슬라이드당 최대 줄 수:", min_value=1, max_value=10, value=5, key="max_lines_slider")
 max_chars_per_line_input = st.slider("한 줄당 최대 글자 수:", min_value=10, max_value=100, value=35, key="max_chars_slider")
+min_chars_per_line_input = st.slider("한 줄당 최소 글자 수:", min_value=5, max_value=50, value=5, key="min_chars_slider")  # 최소 글자 수 슬라이더 추가
 
 if st.button("PPT 만들기", key="create_ppt_button") and text_input.strip():
     sentences = split_text(text_input)
     slide_texts = group_sentences_to_slides(sentences, max_chars_per_line_input, max_lines_per_slide_input)
-    ppt = create_ppt(slide_texts, max_chars_per_line_input)
+    ppt = create_ppt(slide_texts, max_chars_per_line_input, min_chars_per_line_input)
 
     if ppt:
         ppt_io = io.BytesIO()
