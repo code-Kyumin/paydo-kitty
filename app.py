@@ -38,10 +38,10 @@ def split_and_group_text(text, max_lines_per_slide=5, min_chars_per_line=4, max_
     current_slide_text = ""
     current_slide_lines = 0
     sentences = re.split(r'(?<=[.!?])\s+', text.strip())
-    
+
     for sentence in sentences:
         lines_needed = sentence_line_count(sentence, max_chars_per_line_in_ppt)
-        
+
         if current_slide_lines + lines_needed <= max_lines_per_slide:
             if current_slide_text:
                 current_slide_text += " "
@@ -53,11 +53,11 @@ def split_and_group_text(text, max_lines_per_slide=5, min_chars_per_line=4, max_
             original_sentence_flags.append(False)  # 분할된 문장
             current_slide_text = sentence
             current_slide_lines = lines_needed
-            
+
     if current_slide_text:
         slides.append(current_slide_text)
         original_sentence_flags.append(True)  # 마지막 슬라이드
-    
+
     return slides, original_sentence_flags
 
 # PPT 생성 함수
@@ -209,7 +209,7 @@ if st.button("🚀 PPT 만들기", key="create_ppt_button"):
     ppt, check_needed_slides = create_ppt(
         slide_texts,
         original_sentence_flags,
-        max_chars_per_line_ppt=max_chars_per_line_ppt_input,
+        max_chars_per_line_in_ppt=max_chars_per_line_ppt_input,
         max_lines_per_slide=max_lines_per_slide_input,
         font_size=font_size_input
     )
