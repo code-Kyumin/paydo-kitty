@@ -33,7 +33,7 @@ def split_and_group_text(text, separate_pattern=None, max_lines_per_slide=5, min
     for sentence in sentences:
         sentence = sentence.strip()
         # 특정 패턴을 만족하는지 확인
-        if separate_pattern and re.match(sentence):
+        if separate_pattern and re.match(separate_pattern, sentence):
             # 현재 슬라이드에 내용이 있으면 추가하고 새 슬라이드 시작
             if current_slide_sentences:
                 slides.append("\n".join(current_slide_sentences))
@@ -166,9 +166,9 @@ separate_pattern_input = st.text_input("🔍 분리할 텍스트 패턴 (정규 
 # UI에서 사용자로부터 직접 값을 입력받도록 슬라이더 추가
 max_lines_per_slide_input = st.slider("📄 슬라이드당 최대 줄 수:", min_value=1, max_value=10, value=5, key="max_lines_slider")
 # PPT 텍스트 박스 내에서의 줄바꿈 글자 수 (실제 PPT에 표시될 때 적용)
-max_chars_per_line_ppt_input = st.slider("🔤 한 줄당 최대 글자 수 (PPT 표시):", min_value=3, max_value=30, value=18, key="max_chars_slider_ppt")
+max_chars_per_line_ppt_input = st.slider("📏 한 줄당 최대 글자 수 (PPT 표시):", min_value=3, max_value=30, value=18, key="max_chars_slider_ppt")
 min_chars_per_line_input = st.slider("🔤 한 줄당 최소 글자 수:", min_value=1, max_value=10, value=4, key="min_chars_slider")
-font_size_input = st.slider("Aa 폰트 크기:", min_value=10, max_value=60, value=54, key="font_size_slider")
+font_size_input = st.slider("🅰️ 폰트 크기:", min_value=10, max_value=60, value=54, key="font_size_slider")
 
 
 if st.button("🚀 PPT 만들기", key="create_ppt_button") and text_input.strip():
