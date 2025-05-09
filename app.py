@@ -1,9 +1,9 @@
 import streamlit as st
 from pptx import Presentation
 from pptx.util import Inches, Pt
-from pptx.enum.text import PP_ALIGN, MSO_VERTICAL_ANCHOR, MSO_AUTO_SIZE
-from pptx.dml.color import RGBColor
+from pptx.enum.text import PP_ALIGN, MSO_VERTICAL_ANCHOR
 from pptx.enum.shapes import MSO_SHAPE
+from pptx.dml.color import RGBColor
 import io
 import re
 import textwrap
@@ -65,7 +65,7 @@ def create_ppt(slide_texts, max_chars_per_line_in_ppt=18, font_size=54):
         p.text = "\n".join(lines)
         p.font.size = Pt(font_size)
         p.font.name = 'Noto Color Emoji'
-        p.font.bold = True  # 텍스트 볼드 처리
+        p.font.bold = True
         p.alignment = PP_ALIGN.CENTER
 
         # 페이지 번호 (현재 페이지/전체 페이지)
@@ -88,12 +88,28 @@ def create_ppt(slide_texts, max_chars_per_line_in_ppt=18, font_size=54):
     return ppt_io
 
 def add_end_mark(slide):
-    """슬라이드에 '끝' 표시를 추가하는 함수 (우측 하단)"""
-    end_shape = slide.shapes.add_textbox(Inches(10.5), Inches(6.5), Inches(2), Inches(0.5))
-    end_shape.text_frame.text = "끝"
-    end_shape.text_frame.paragraphs[0].font.size = Pt(36)
-    end_shape.text_frame.paragraphs[0].font.bold = True
-    end_shape.text_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
+    """슬라이드에 '끝' 표시를 추가하는 함수 (우측 하단, 도형 및 색상 추가)"""
+
+    end_shape = slide.shapes.add_shape(
+        MSO_SHAPE.RECTANGLE,
+        Inches(10),  # left
+        Inches(6),   # top
+        Inches(2),   # width
+        Inches(1)    # height
+    )
+    end_shape.fill.solid()
+    end_shape.fill.fore_color.rgb = RGBColor(255, 0, 0)  # 빨간색 배경
+    end_shape.line.color.rgb = RGBColor(0, 0, 0)  # 검은색 테두리
+
+    end_text_frame = end_shape.text_frame
+    end_text_frame.clear()
+    end_paragraph = end_text_frame.paragraphs[0]
+    end_paragraph.text = "끝"
+    end_paragraph.font.size = Pt(36)
+    end_paragraph.font.color.rgb = RGBColor(255, 255, 255)  # 흰색 글자
+    end_paragraph.font.bold = True
+    end_text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.MIDDLE
+    end_text_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
 
 # Streamlit UI
 st.set_page_config(page_title="Paydo", layout="centered")
