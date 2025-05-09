@@ -41,53 +41,50 @@ def split_and_group_text(
     current_slide_text = ""
     current_slide_lines = 0
     split_occurred = False  # 문장 분할 발생 여부 추적
+    original_texts = []  # [추가] 원본 텍스트 저장을 위한 리스트
 
     sentences = re.split(r"(?<=[.!?])\s+", text.strip())
 
-    for sentence in sentences:
+    for i, sentence in enumerate(sentences):
         lines_needed = sentence_line_count(sentence, max_chars_per_line_in_ppt)
 
+        # 현재 슬라이드에 추가 가능한지 확인
         if current_slide_lines + lines_needed <= max_lines_per_slide:
             current_slide_text += sentence + " "
             current_slide_lines += lines_needed
         else:
-            # 현재 슬라이드에 추가할 수 없는 경우, 문장을 나눔
-            remaining_lines = max_lines_per_slide - current_slide_lines
-            if remaining_lines > 0:
-                # 남은 공간이 있으면 일부를 추가
-                words = sentence.split()
-                added_text = ""
-                added_lines = 0
-                for word in words:
-                    word_lines = sentence_line_count(
-                        added_text + word + " ", max_chars_per_line_in_ppt
-                    )
-                    if added_lines + word_lines <= remaining_lines:
-                        added_text += word + " "
-                        added_lines += word_lines
-                    else:
-                        break  # 더 이상 추가할 수 없음
-                current_slide_text += added_text.strip()
+            # 현재 슬라이드에 추가할 수 없는 경우
+            if current_slide_text:
                 slides.append(current_slide_text.strip())
-                current_slide_text = sentence[len(added_text) :].strip() + " "
-                current_slide_lines = lines_needed - added_lines
-                split_occurred = True  # 분할이 일어났음을 기록
-            else:
-                # 현재 슬라이드가 꽉 찬 경우 새 슬라이드
-                slides.append(current_slide_text.strip())
-                current_slide_text = sentence + " "
-                current_slide_lines = lines_needed
-                split_occurred = True  # 분할이 일어났음을 기록
+                original_texts.append(
+                    current_slide_text.strip()
+                )  # [추가] 원본 텍스트 저장
+            current_slide_text = sentence + " "
+            current_slide_lines = lines_needed
+            split_occurred = True  # 분할이 일어났음을 기록
+        
+        # 다음 문장과 합쳐도 최대 줄 수를 넘지 않는지 확인
+        if i + 1 < len(sentences):
+            next_sentence = sentences[i + 1]
+            next_lines_needed = sentence_line_count(
+                current_slide_text + next_sentence, max_chars_per_line_in_ppt
+            )
+            if next_lines_needed <= max_lines_per_slide:
+                current_slide_text += next_sentence + " "
+                current_slide_lines = next_lines_needed
+                i += 1  # 다음 문장 처리 건너뜀
 
     if current_slide_text:
         slides.append(current_slide_text.strip())
+        original_texts.append(current_slide_text.strip())  # [추가] 마지막 텍스트 저장
 
-    return slides, split_occurred  # 분할 여부 반환
+    return slides, split_occurred, original_texts  # [수정] 원본 텍스트 반환
 
 
 # PPT 생성 함수
 def create_ppt(
     slide_texts,
+    original_texts,  # [추가] 원본 텍스트 받음
     max_chars_per_line_in_ppt=18,
     font_size=54,
     max_lines_per_slide=5,  # [추가] 최대 줄 수 인자 받음
@@ -96,7 +93,6 @@ def create_ppt(
     prs.slide_width = Inches(13.33)
     prs.slide_height = Inches(7.5)
     total_slides = len(slide_texts)
-    split_warning_slides = []  # [추가] 분할 경고 슬라이드 번호 저장
 
     for i, text in enumerate(slide_texts):
         slide = prs.slides.add_slide(prs.slide_layouts[6])
@@ -107,21 +103,12 @@ def create_ppt(
         tf.clear()
 
         lines = textwrap.wrap(text, width=max_chars_per_line_in_ppt, break_long_words=False)
-        if len(lines) > max_lines_per_slide:  # [수정] 최대 줄 수 초과 확인
-            split_warning_slides.append(i + 1)  # 슬라이드 번호 저장
-            p = tf.paragraphs[0]
-            p.text = "⚠️ " + "\n".join(lines)  # 경고 표시 추가
-            p.font.size = Pt(font_size)
-            p.font.name = "Noto Color Emoji"
-            p.font.bold = True
-            p.alignment = PP_ALIGN.CENTER
-        else:
-            p = tf.paragraphs[0]
-            p.text = "\n".join(lines)
-            p.font.size = Pt(font_size)
-            p.font.name = "Noto Color Emoji"
-            p.font.bold = True
-            p.alignment = PP_ALIGN.CENTER
+        p = tf.paragraphs[0]
+        p.text = "\n".join(lines)
+        p.font.size = Pt(font_size)
+        p.font.name = "Noto Color Emoji"
+        p.font.bold = True
+        p.alignment = PP_ALIGN.CENTER
 
         # 페이지 번호 (현재 페이지/전체 페이지)
         footer_box = slide.shapes.add_textbox(Inches(11.5), Inches(7.0), Inches(1.5), Inches(0.4))
@@ -140,7 +127,7 @@ def create_ppt(
     prs.save(ppt_io)
     ppt_io.seek(0)
 
-    return ppt_io, split_warning_slides  # [수정] 분할 경고 슬라이드 번호 반환
+    return ppt_io
 
 
 def add_end_mark(slide):
@@ -203,17 +190,18 @@ if st.button("🚀 PPT 만들기", key="create_ppt_button"):
         st.stop()
 
     # 수정된 함수 호출
-    slide_texts, split_occurred = split_and_group_text(
+    slide_texts, split_occurred, original_texts = split_and_group_text(
         text,
         max_lines_per_slide=max_lines_per_slide_input,
         min_chars_per_line=min_chars_per_line_input,
         max_chars_per_line_in_ppt=max_chars_per_line_ppt_input,
     )
-    ppt_file, split_warning_slides = create_ppt(
+    ppt_file = create_ppt(
         slide_texts,
+        original_texts,  # [추가] 원본 텍스트 전달
         max_chars_per_line_in_ppt=max_chars_per_line_ppt_input,
         font_size=font_size_input,
-        max_lines_per_slide=max_lines_per_slide_input,  # [추가] 최대 줄 수 전달
+        max_lines_per_slide=max_lines_per_slide_input,
     )
 
     st.download_button(
@@ -227,9 +215,4 @@ if st.button("🚀 PPT 만들기", key="create_ppt_button"):
     if split_occurred:
         st.info(
             "⚠️ 긴 문장으로 인해 일부 슬라이드가 자동으로 분할되었습니다. PPT를 확인하여 어색한 부분이 있는지 검토해주세요."
-        )
-
-    if split_warning_slides:  # [추가] 경고 슬라이드 있는 경우 알림
-        st.warning(
-            f"❗️ 일부 슬라이드({split_warning_slides})는 최대 줄 수를 초과했습니다. PPT를 확인하여 텍스트가 잘리는지 검토해주세요."
         )
