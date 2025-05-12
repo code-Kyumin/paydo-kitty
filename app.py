@@ -38,6 +38,7 @@ def split_and_group_text(text, separate_pattern=None, max_lines_per_slide=5, min
     slides = []
     current_slide_sentences = []
     current_slide_lines = 0
+    split_flag = []  # 각 슬라이드가 분할되었는지 여부를 저장하는 리스트
 
     sentences = re.split(r'(?<=[.!?])\s+', text.strip())
 
@@ -48,7 +49,9 @@ def split_and_group_text(text, separate_pattern=None, max_lines_per_slide=5, min
             # 현재 슬라이드에 내용이 있으면 추가하고 새 슬라이드 시작
             if current_slide_sentences:
                 slides.append("\n".join(current_slide_sentences))
+                split_flag.append(False)  # 이전 슬라이드는 분할되지 않음
             slides.append(sentence)  # 패턴에 맞는 텍스트는 단독 슬라이드로
+            split_flag.append(False)  # 패턴에 맞는 슬라이드는 분할되지 않음
             current_slide_sentences = []
             current_slide_lines = 0
         else:
@@ -64,14 +67,16 @@ def split_and_group_text(text, separate_pattern=None, max_lines_per_slide=5, min
                 current_slide_lines += lines_needed
             else:
                 slides.append("\n".join(current_slide_sentences))
+                split_flag.append(current_slide_lines > 0)  # 슬라이드가 분할되었는지 여부 저장
                 current_slide_sentences = [sentence]
                 current_slide_lines = lines_needed
 
     # 마지막 슬라이드 내용 추가
     if current_slide_sentences:
         slides.append("\n".join(current_slide_sentences))
+        split_flag.append(current_slide_lines > 0)  # 마지막 슬라이드 분할 여부 저장
 
-    return slides
+    return slides, split_flag
 
 # 전체 입력을 문장 단위로 분해
 def split_text(text):
@@ -89,6 +94,7 @@ def create_ppt(slide_texts, max_chars_per_line_in_ppt=18, max_lines_per_slide=5,
 
     try:
         for original_text in slide_texts:
+            # 텍스트를 미리 줄바꿈하여 slides_data에 저장
             lines = textwrap.wrap(original_text, width=max_chars_per_line_in_ppt, break_long_words=False,
                                  fix_sentence_endings=True)
             slides_data.append({
@@ -99,7 +105,7 @@ def create_ppt(slide_texts, max_chars_per_line_in_ppt=18, max_lines_per_slide=5,
 
         # 실제 슬라이드 생성
         for data in slides_data:
-            create_slide(prs, data["text"], current_slide_idx, total_slides, font_size)
+            create_slide(prs, data["lines"], current_slide_idx, total_slides, font_size)
             current_slide_idx += 1
 
         return prs
@@ -108,7 +114,7 @@ def create_ppt(slide_texts, max_chars_per_line_in_ppt=18, max_lines_per_slide=5,
         print(f"PPT 생성 중 오류 발생: {e}")
         return None
 
-def create_slide(prs, text, current_idx, total_slides, font_size):
+def create_slide(prs, lines, current_idx, total_slides, font_size):
     """실제로 슬라이드를 생성하는 함수"""
 
     slide = prs.slides.add_slide(prs.slide_layouts[6])
@@ -118,14 +124,15 @@ def create_slide(prs, text, current_idx, total_slides, font_size):
     tf.word_wrap = True
     tf.clear()
 
-    p = tf.paragraphs[0]
-    p.text = text
-
-    p.font.size = Pt(font_size)  # 폰트 크기 동적으로 설정
-    p.font.name = 'Noto Color Emoji'  # 이모지 지원 글꼴 설정
-    p.font.bold = True
-    p.font.color.rgb = RGBColor(0, 0, 0)
-    p.alignment = PP_ALIGN.CENTER
+    # 텍스트를 한 줄씩 추가하고, 각 줄의 폰트 설정을 적용
+    for line in lines:
+        p = tf.add_paragraph()
+        p.text = line
+        p.font.size = Pt(font_size)
+        p.font.name = 'Noto Color Emoji'
+        p.font.bold = True
+        p.font.color.rgb = RGBColor(0, 0, 0)
+        p.alignment = PP_ALIGN.CENTER
 
     tf.vertical_anchor = MSO_VERTICAL_ANCHOR.MIDDLE
 
@@ -192,7 +199,7 @@ if st.button("🚀 PPT 만들기", key="create_ppt_button"):
         st.warning("Word 파일을 업로드하거나 텍스트를 입력하세요.")
         st.stop()
 
-    slide_texts = split_and_group_text(text,
+    slide_texts, split_flags = split_and_group_text(text,
                                         max_lines_per_slide=max_lines_per_slide_input,
                                         min_chars_per_line=min_chars_per_line_input)
     ppt = create_ppt(slide_texts, max_chars_per_line_in_ppt=max_chars_per_line_ppt_input,
@@ -211,5 +218,9 @@ if st.button("🚀 PPT 만들기", key="create_ppt_button"):
             mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
             key="download_button"
         )
+        # 분할된 슬라이드가 있는 경우 경고 메시지 표시
+        if any(split_flags):
+            split_slide_numbers = [i + 1 for i, flag in enumerate(split_flags) if flag]
+            st.warning(f"❗️ 일부 슬라이드({split_slide_numbers})는 한 문장이 너무 길어 분할되었습니다. PPT를 확인하여 가독성을 검토해주세요.")
     else:
         st.error("❌ PPT 생성에 실패했습니다.")
