@@ -303,7 +303,7 @@ if st.button("🚀 AI 기반 PPT 만들기", key="create_ppt_button"):
         )
         ppt = create_ppt(
             slide_texts, split_flags, slide_numbers,
-            max_chars_per_line_in_ppt=max_chars_per_line_ppt_input,
+            max_chars_per_line_in_ppt=max_chars_per_line_ppt,
             font_size=font_size_input
         )
 
