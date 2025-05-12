@@ -1,7 +1,7 @@
 import streamlit as st
 from pptx import Presentation
 from pptx.util import Inches, Pt
-from pptx.enum.text import PP_ALIGN, MSO_VERTICAL_ANCHOR, MSO_AUTO_SIZE
+from pptx.enum.text import PP_ALIGN, MSO_VERTICAL_ANCHOR
 from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_SHAPE
 import io
@@ -60,7 +60,7 @@ def split_and_group_text(text, max_lines_per_slide, max_chars_per_line_ppt):
                 split_flags.append(False)
             elif sentence_line_count(slides[-1] + " " + sentence, max_chars_per_line_ppt) <= max_lines_per_slide:
                 slides[-1] += " " + sentence
-                split_flags.append(False)
+                # 여러 문장 합쳐진 슬라이드는 분할되지 않았으므로 False 유지
             else:
                 slides.append(sentence)
                 split_flags.append(False)
@@ -100,8 +100,8 @@ def add_text_to_slide(slide, text, font_size, alignment):
     p.font.color.rgb = RGBColor(0, 0, 0)
     p.alignment = alignment
 
+    # 상단 정렬을 다시 한번 명시적으로 설정 (단락 스타일 후)
     text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.TOP
-    text_frame.auto_size = MSO_AUTO_SIZE.SHAPE_TO_FIT_TEXT
 
     wrapped_lines = textwrap.wrap(text, width=18, break_long_words=False)
     text_frame.clear()
@@ -113,8 +113,11 @@ def add_text_to_slide(slide, text, font_size, alignment):
         p.font.bold = True
         p.font.color.rgb = RGBColor(0, 0, 0)
         p.alignment = alignment
+        # 각 단락에도 상단 정렬 적용 (추가 시도)
+        p.vertical_anchor = MSO_VERTICAL_ANCHOR.TOP
 
-    text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.MIDDLE
+    # 텍스트 박스의 자동 맞춤 기능 제거 (상단 정렬에 영향 줄 수 있음)
+    text_frame.auto_size = None
 
 
 def add_slide_number(slide, current, total):
