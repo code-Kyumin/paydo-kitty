@@ -325,7 +325,6 @@ if st.button("🚀 AI 기반 PPT 만들기", key="create_ppt_button"):
             )
         except Exception as e:
             st.error(f"PPT 생성 중 오류가 발생했습니다: {e}")
-            continue
 
     if ppt:
         ppt_io = io.BytesIO()
@@ -334,11 +333,10 @@ if st.button("🚀 AI 기반 PPT 만들기", key="create_ppt_button"):
             ppt_io.seek(0)
         except Exception as e:
             st.error(f"PPT 저장 중 오류가 발생했습니다: {e}")
-            continue
-
-        st.download_button(
-            label="📥 PPT 다운로드",
-            data=ppt_io,
-            file_name="paydo_script_ai.pptx",
-            mime="application/vnd.openxmlformats-officedocument.presentationml.presentation"
-        )
+        else:
+            st.download_button(
+                label="📥 PPT 다운로드",
+                data=ppt_io,
+                file_name="paydo_script_ai.pptx",
+                mime="application/vnd.openxmlformats-officedocument.presentationml.presentation"
+            )
