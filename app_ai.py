@@ -192,7 +192,6 @@ def split_and_group_text_with_embeddings(
     final_slide_numbers_result = slide_numbers[:len(final_slides_result)]
 
     return final_slides_result, final_split_flags_result, final_slide_numbers_result
-
 # PPT 생성 함수 (오류 처리 추가)
 def create_ppt(slide_texts, split_flags, slide_numbers, max_chars_per_line_in_ppt=18, font_size=54):
     prs = Presentation()
@@ -206,8 +205,9 @@ def create_ppt(slide_texts, split_flags, slide_numbers, max_chars_per_line_in_pp
             slide = prs.slides.add_slide(prs.slide_layouts[6])
             add_text_to_slide(slide, text, font_size, PP_ALIGN.CENTER)
             add_slide_number(slide, slide_numbers[i], total_slides)  # 슬라이드 번호 전달
+            # '확인 필요!' 박스는 한 문장인데 최대 줄 수에 따라 슬라이드를 임의로 분리한 경우만 표시
             if split_flags[i] and calculate_text_lines(text, max_chars_per_line_in_ppt) == 1:
-                add_check_needed_shape(slide, slide_numbers[i])  # 슬라이드 번호 전달
+                add_check_needed_shape(slide, slide_numbers[i], slide_numbers[i])  # 슬라이드 번호도 함께 전달
             if i == total_slides - 1:
                 add_end_mark(slide)
         except Exception as e:
@@ -274,7 +274,7 @@ def add_end_mark(slide):
     end_text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.MIDDLE
     p.alignment = PP_ALIGN.CENTER
 
-def add_check_needed_shape(slide, slide_number):
+def add_check_needed_shape(slide, slide_number, ui_slide_number):  # UI 슬라이드 번호 추가
     check_shape = slide.shapes.add_shape(
         MSO_SHAPE.RECTANGLE,
         Inches(0.5),
@@ -289,7 +289,7 @@ def add_check_needed_shape(slide, slide_number):
     check_text_frame = check_shape.text_frame
     check_text_frame.clear()
     p = check_text_frame.paragraphs[0]
-    p.text = f"확인 필요! (슬라이드 {slide_number})"  # 슬라이드 번호 표시
+    p.text = f"확인 필요! (슬라이드 {ui_slide_number})"  # UI 슬라이드 번호 표시
     p.font.size = Pt(18)
     p.font.bold = True
     p.font.color.rgb = RGBColor(0, 0, 0)
