@@ -50,9 +50,9 @@ def split_and_group_text(text, max_lines_per_slide, max_chars_per_line_ppt):
                 words_per_segment = 1  # 최소 1 단어 포함
 
             segments = [words[i:i + words_per_segment] for i in range(0, num_words, words_per_segment)]
-            for segment in segments:
-                slides.append(" ".join(segment))
+            for _ in segments:
                 split_flags.append(True)  # 분할된 슬라이드임을 표시
+            slides.extend([" ".join(segment) for segment in segments])
         else:
             # 여러 문장을 합쳐서 슬라이드 생성
             if not slides or split_flags[-1]:  # 이전 슬라이드가 분할된 경우 새 슬라이드
@@ -89,7 +89,7 @@ def add_text_to_slide(slide, text, font_size, alignment):
     textbox = slide.shapes.add_textbox(Inches(0.5), Inches(0.3), Inches(12.33), Inches(6.2))
     text_frame = textbox.text_frame
     text_frame.clear()
-    text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.TOP
+    text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.TOP  # 상단 정렬 명시적으로 설정
     text_frame.word_wrap = True
 
     p = text_frame.add_paragraph()
