@@ -243,7 +243,7 @@ if st.button("🚀 PPT 만들기", key="create_ppt_button"):
     st.session_state.final_split_flags = final_split_flags # 세션 상태에 저장
     ppt = create_ppt(
         slide_texts,
-        final_split_flags,
+        final_split_flags, # <- 여기를 final_split_flags로 유지
         max_chars_per_line_in_ppt=max_chars_per_line_ppt_input,
         font_size=font_size_input
     )
