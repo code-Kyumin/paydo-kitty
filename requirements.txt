@@ -1,4 +1,4 @@
 streamlit
-pptx
+python-pptx
 python-docx
 sentence-transformers
