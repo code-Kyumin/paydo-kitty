@@ -107,7 +107,25 @@ def add_text_to_slide(slide, text, font_size, alignment):
     p.font.bold = True
     p.font.color.rgb = RGBColor(0, 0, 0)
     p.alignment = alignment  # 전달받은 정렬 방식 적용
+
+    # 명시적으로 상단 정렬 재적용
+    text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.TOP
+    text_frame.auto_size = MSO_AUTO_SIZE.SHAPE_TO_FIT_TEXT # 텍스트에 맞춰 크기 자동 조절
+
+    # 줄바꿈 시 띄어쓰기 단위 처리 (textwrap 사용)
+    wrapped_lines = textwrap.wrap(text, width=18, break_long_words=False)
+    text_frame.clear()
+    for line in wrapped_lines:
+        p = text_frame.add_paragraph()
+        p.text = line
+        p.font.size = Pt(font_size)
+        p.font.name = 'Noto Color Emoji'
+        p.font.bold = True
+        p.font.color.rgb = RGBColor(0, 0, 0)
+        p.alignment = alignment
+
     text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.MIDDLE
+
 
 def add_slide_number(slide, current, total):
     footer_box = slide.shapes.add_textbox(Inches(11.5), Inches(7.0), Inches(1.5), Inches(0.4))
@@ -160,7 +178,7 @@ def add_check_needed_shape(slide):
     p.font.size = Pt(18)
     p.font.bold = True
     p.font.color.rgb = RGBColor(0, 0, 0)
-    text_frame = check_shape.text_frame # 이 부분을 다시 추가
+    text_frame = check_shape.text_frame
     text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.MIDDLE
     p.alignment = PP_ALIGN.CENTER
 
