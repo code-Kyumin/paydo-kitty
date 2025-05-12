@@ -18,54 +18,56 @@ def extract_text_from_word(file_path):
         full_text.append(paragraph.text)
     return "\n".join(full_text)
 
-# 문장이 차지할 줄 수 계산 (단어 잘림 방지)
-def sentence_line_count(sentence, max_chars_per_line):
-    words = sentence.split()
-    lines = 1
-    current_line_length = 0
-    for word in words:
-        if current_line_length + len(word) + 1 <= max_chars_per_line:
-            current_line_length += len(word) + 1
-        else:
+# 문장이 차지할 줄 수 계산
+def calculate_text_lines(text, max_chars_per_line):
+    lines = 0
+    paragraphs = text.split('\n')
+    for paragraph in paragraphs:
+        if not paragraph:
             lines += 1
-            current_line_length = len(word)
+        else:
+            lines += len(textwrap.wrap(paragraph, width=max_chars_per_line, break_long_words=True))
     return lines
 
 # 텍스트를 슬라이드로 분할 및 그룹화
 def split_and_group_text(text, max_lines_per_slide, max_chars_per_line_ppt):
     slides = []
     split_flags = []
-    sentences = re.split(r'(?<=[.!?])\s+', text.strip())
+    # 문장 분리 기준 강화: 마침표, 물음표, 느낌표, 쉼표
+    sentences = re.split(r'(?<=[.?!,])\s+', text.strip())
+    current_slide_text = ""
+    current_slide_lines = 0
 
     for sentence in sentences:
         sentence = sentence.strip()
-        sentence_lines = sentence_line_count(sentence, max_chars_per_line_ppt)
+        sentence_lines = calculate_text_lines(sentence, max_chars_per_line_ppt)
 
-        if sentence_lines > max_lines_per_slide:
-            # 한 문장이 최대 줄 수를 넘는 경우 분할
-            words = sentence.split()
-            num_words = len(words)
-            words_per_segment = (max_lines_per_slide * max_chars_per_line_ppt) // (len(words[0]) + 1) if words else 1
-            if words_per_segment < 1:
-                words_per_segment = 1  # 최소 1 단어 포함
-
-            segments = [words[i:i + words_per_segment] for i in range(0, num_words, words_per_segment)]
-            for _ in segments:
-                split_flags.append(True)  # 분할된 슬라이드임을 표시
-            slides.extend([" ".join(segment) for segment in segments])
+        if current_slide_lines + sentence_lines <= max_lines_per_slide:
+            if current_slide_text:
+                current_slide_text += " "
+            current_slide_text += sentence
+            current_slide_lines += sentence_lines
+            split_flags.append(False) # 아직 분할되지 않음
         else:
-            # 여러 문장을 합쳐서 슬라이드 생성
-            if not slides or split_flags[-1]:  # 이전 슬라이드가 분할된 경우 새 슬라이드
-                slides.append(sentence)
-                split_flags.append(False)
-            elif sentence_line_count(slides[-1] + " " + sentence, max_chars_per_line_ppt) <= max_lines_per_slide:
-                slides[-1] += " " + sentence
-                # 여러 문장 합쳐진 슬라이드는 분할되지 않았으므로 False 유지
-            else:
-                slides.append(sentence)
-                split_flags.append(False)
+            slides.append(current_slide_text)
+            current_slide_text = sentence
+            current_slide_lines = sentence_lines
+            split_flags.append(True) # 분할이 일어남
 
-    return slides, split_flags
+    if current_slide_text:
+        slides.append(current_slide_text)
+        split_flags.append(False) # 마지막 슬라이드는 분할 여부와 관계없이 표시
+
+    # 분할 플래그를 슬라이드 개수와 맞춤
+    final_split_flags = []
+    for i, slide_text in enumerate(slides):
+        lines = calculate_text_lines(slide_text, max_chars_per_line_ppt)
+        if lines > max_lines_per_slide:
+            final_split_flags.append(True)
+        else:
+            final_split_flags.append(False)
+
+    return slides, final_split_flags
 
 # PPT 생성 함수
 def create_ppt(slide_texts, split_flags, max_chars_per_line_in_ppt=18, font_size=54):
@@ -92,18 +94,7 @@ def add_text_to_slide(slide, text, font_size, alignment):
     text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.TOP  # 상단 정렬 명시적으로 설정
     text_frame.word_wrap = True
 
-    p = text_frame.add_paragraph()
-    p.text = text
-    p.font.size = Pt(font_size)
-    p.font.name = 'Noto Color Emoji'
-    p.font.bold = True
-    p.font.color.rgb = RGBColor(0, 0, 0)
-    p.alignment = alignment
-
-    # 상단 정렬을 다시 한번 명시적으로 설정 (단락 스타일 후)
-    text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.TOP
-
-    wrapped_lines = textwrap.wrap(text, width=18, break_long_words=False)
+    wrapped_lines = textwrap.wrap(text, width=18, break_long_words=True)  # 긴 단어 분리 활성화
     text_frame.clear()
     for line in wrapped_lines:
         p = text_frame.add_paragraph()
@@ -113,11 +104,11 @@ def add_text_to_slide(slide, text, font_size, alignment):
         p.font.bold = True
         p.font.color.rgb = RGBColor(0, 0, 0)
         p.alignment = alignment
-        # 각 단락에도 상단 정렬 적용 (추가 시도)
         p.vertical_anchor = MSO_VERTICAL_ANCHOR.TOP
 
     # 텍스트 박스의 자동 맞춤 기능 제거 (상단 정렬에 영향 줄 수 있음)
     text_frame.auto_size = None
+    text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.TOP
 
 
 def add_slide_number(slide, current, total):
