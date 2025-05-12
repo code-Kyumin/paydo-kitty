@@ -15,6 +15,10 @@ import logging
 # 로깅 설정
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
+# 사용할 한국어 특화 모델: klue/bert-base-nli-v2 또는 snunlp/KR-SBERT-V40K-klue-nli-aug
+# 둘 중 하나를 선택하여 model_name 변수에 할당하세요.
+model_name = 'klue/bert-base-nli-v2'  # 또는 'snunlp/KR-SBERT-V40K-klue-nli-aug'
+
 # 2. 함수 정의 (Word 파일 처리)
 def extract_text_from_word(file_path):
     """Word 파일에서 모든 텍스트를 추출하여, 단락 단위로 분리하여 리스트로 반환합니다."""
@@ -45,7 +49,7 @@ def calculate_text_lines(text, max_chars_per_line):
             lines += len(textwrap.wrap(paragraph, width=max_chars_per_line, break_long_words=True))
     return lines
 
-def get_sentence_embeddings(text, model_name='paraphrase-multilingual-mpnet-base-v2'):
+def get_sentence_embeddings(text, model_name):
     """텍스트에서 문장 임베딩을 추출합니다."""
     model = SentenceTransformer(model_name)
     sentences = smart_sentence_split(text)
@@ -71,7 +75,7 @@ def smart_sentence_split(text):
 
 # 4. 함수 정의 (슬라이드 분할)
 def split_text_into_slides_with_similarity(
-    text_paragraphs, max_lines_per_slide, max_chars_per_line_ppt, similarity_threshold=0.85
+    text_paragraphs, max_lines_per_slide, max_chars_per_line_ppt, similarity_threshold=0.85, model_name='klue/bert-base-nli-v2'
 ):
     """
     단락 및 문장 유사도를 기반으로 슬라이드를 분할합니다.
@@ -86,7 +90,7 @@ def split_text_into_slides_with_similarity(
     current_slide_lines = 0
     needs_check = False  # '확인 필요!' 표시 여부
 
-    model = SentenceTransformer('paraphrase-multilingual-mpnet-base-v2')
+    model = SentenceTransformer(model_name)
     
     for paragraph in text_paragraphs:
         sentences = smart_sentence_split(paragraph)
@@ -318,7 +322,8 @@ if st.button("PPT 생성"):
                 text_paragraphs,
                 max_lines_per_slide=st.session_state.max_lines_slider,
                 max_chars_per_line_ppt=st.session_state.max_chars_slider_ppt,
-                similarity_threshold=st.session_state.similarity_threshold_input
+                similarity_threshold=st.session_state.similarity_threshold_input,
+                model_name=model_name  # 한국어 특화 모델 이름 전달
             )
             ppt = create_ppt(
                 slide_texts, split_flags,
@@ -347,16 +352,11 @@ if st.button("PPT 생성"):
                 mime="application/vnd.openxmlformats-officedocument.presentationml.presentation"
             )
 
-        # 분할된 슬라이드 수 알림
+        # 분할된 슬라이드 정보 표시 (슬라이드 수, 번호)
+        st.subheader("생성 결과")
+        st.write(f"총 {len(slide_texts)}개의 슬라이드가 생성되었습니다.")
         if divided_slide_count > 0:
-            st.warning(f"총 {len(slide_texts)}개의 슬라이드 중 {divided_slide_count}개의 슬라이드가 나뉘어 졌습니다. 확인이 필요합니다.")
+            divided_slide_numbers = [i + 1 for i, flag in enumerate(split_flags) if flag]
+            st.warning(f"이 중 {divided_slide_count}개의 슬라이드(번호: {divided_slide_numbers})는 나뉘어 졌으므로 확인이 필요합니다.")
         else:
-            st.success("PPT가 성공적으로 생성되었습니다.")
-
-        # UI에 슬라이드 내용 표시 (디버깅용, 필요시 제거)
-        st.subheader("생성된 슬라이드 내용 (확인용)")
-        for i, text in enumerate(slide_texts):
-            st.write(f"**슬라이드 {i + 1}:**")
-            st.write(text)
-            if split_flags[i]:
-                st.write("  ⚠️ **이 슬라이드는 나뉘어 졌으므로 확인이 필요합니다.**")
+            st.success("나뉘어진 슬라이드 없이 PPT가 성공적으로 생성되었습니다.")
