@@ -297,7 +297,7 @@ font_size_input = st.slider("Font size", min_value=10, max_value=60, value=54, k
 
 similarity_threshold_input = st.slider(
     "Context similarity threshold",
-    min_value=0.0, max_value=1.0, value=0.85, step=0.05
+    min_value=0.0, max_value=1.0, value=0.85, step=0.05, # 쉼표 추가
     help="""
     Consider splitting slides between sentences with lower context similarity.
     Lower values create shorter, more readable slides (e.g., for presentations).
