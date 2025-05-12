@@ -33,91 +33,62 @@ def calculate_text_lines(text, max_chars_per_line):
 def split_and_group_text(text, max_lines_per_slide, max_chars_per_line_ppt):
     slides = []
     split_flags = []
-    sentences = re.split(r'(?<=[.?!;])\s+', text.strip())
-    current_slide_text = ""
+    # 1차 분리: 개행 문자 기준
+    lines = text.strip().split('\n')
     current_slide_lines = 0
-    max_chars_per_segment = 60  # 공백 제외 최대 글자 수
+    current_slide_text = ""
 
-    for sentence in sentences:
-        sentence = sentence.strip()
-        sentence_lines = calculate_text_lines(sentence, max_chars_per_line_ppt)
+    for line in lines:
+        line = line.strip()
+        line_count = calculate_text_lines(line, max_chars_per_line_ppt)
 
-        if current_slide_lines + sentence_lines <= max_lines_per_slide:
+        if current_slide_lines + line_count <= max_lines_per_slide:
             if current_slide_text:
-                current_slide_text += " "
-            current_slide_text += sentence
-            current_slide_lines += sentence_lines
-            split_flags.append(False)
+                current_slide_text += "\n"
+            current_slide_text += line
+            current_slide_lines += line_count
+            split_flags[-1] = False if split_flags else False # 현재 슬라이드는 분할되지 않음
         else:
-            # 현재 슬라이드가 꽉 찼거나, 현재 문장이 너무 긴 경우 분할 시도
             if current_slide_text:
                 slides.append(current_slide_text)
                 split_flags.append(False)
-                current_slide_text = sentence
-                current_slide_lines = sentence_lines
-                if sentence_lines > max_lines_per_slide:
-                    split_flags.append(True) # 긴 문장 분할 필요
-                else:
-                    split_flags.append(False)
-            elif sentence_lines > max_lines_per_slide:
-                # 긴 문장을 쉼표 기준으로 먼저 분할 시도
-                sub_sentences = sentence.split(',')
-                temp_text = ""
-                temp_lines = 0
-                can_add_to_slide = True
-                for sub in sub_sentences:
-                    sub = sub.strip()
-                    sub_lines = calculate_text_lines(sub, max_chars_per_line_ppt)
-                    if temp_lines + sub_lines <= max_lines_per_slide:
-                        if temp_text:
-                            temp_text += ", "
-                        temp_text += sub
-                        temp_lines += sub_lines
-                    else:
-                        # 현재 하위 문장으로 인해 최대 줄 수 초과
-                        if temp_text:
-                            slides.append(temp_text)
-                            split_flags.append(True)
-                        temp_text = sub
-                        temp_lines = sub_lines
-                if temp_text:
-                    if calculate_text_lines(temp_text, max_chars_per_line_ppt) > max_lines_per_slide:
-                        # 쉼표로 분할해도 여전히 긴 경우, 공백 기준으로 강제 분할
-                        words = temp_text.split()
-                        segment = ""
-                        for word in words:
-                            if len(segment.replace(" ", "")) + len(word) + (1 if segment else 0) <= max_chars_per_segment:
-                                if segment:
-                                    segment += " "
-                                segment += word
-                            else:
-                                slides.append(segment)
-                                split_flags.append(True)
-                                segment = word
-                        if segment:
-                            slides.append(segment)
-                            split_flags.append(True)
-                    else:
-                        slides.append(temp_text)
-                        split_flags.append(True)
-
-            else:
-                slides.append(sentence)
-                split_flags.append(False)
+            current_slide_text = line
+            current_slide_lines = line_count
+            split_flags.append(True) # 새로운 슬라이드 시작 (개행으로 인한 분할)
 
     if current_slide_text:
         slides.append(current_slide_text)
-        split_flags.append(False)
 
-    # 최종 분할 플래그 조정 (각 슬라이드 내용 기준으로 다시 확인)
+    # 2차 분리: 각 슬라이드 내용이 여전히 최대 줄 수를 넘어가면 문장 및 글자 수 기준 분할 적용
+    final_slides = []
     final_split_flags = []
-    for slide_text in slides:
+    for i, slide_text in enumerate(slides):
         if calculate_text_lines(slide_text, max_chars_per_line_ppt) > max_lines_per_slide:
-            final_split_flags.append(True)
+            # 기존 문장 및 글자 수 기준 분할 로직 적용 (약간 수정)
+            sub_sentences = re.split(r'(?<=[.?!;])\s+', slide_text.strip())
+            temp_slide_text = ""
+            temp_slide_lines = 0
+            for sub_sentence in sub_sentences:
+                sub_sentence = sub_sentence.strip()
+                sub_sentence_lines = calculate_text_lines(sub_sentence, max_chars_per_line_ppt)
+                if temp_slide_lines + sub_sentence_lines <= max_lines_per_slide:
+                    if temp_slide_text:
+                        temp_slide_text += " "
+                    temp_slide_text += sub_sentence
+                    temp_slide_lines += sub_sentence_lines
+                else:
+                    final_slides.append(temp_slide_text)
+                    final_split_flags.append(True)
+                    temp_slide_text = sub_sentence
+                    temp_slide_lines = sub_sentence_lines
+            if temp_slide_text:
+                final_slides.append(temp_slide_text)
+                final_split_flags.append(True) # 개행 + 내용 초과로 분할
         else:
-            final_split_flags.append(False)
+            final_slides.append(slide_text)
+            final_split_flags.append(split_flags[i] if i < len(split_flags) else False)
 
-    return slides, final_split_flags
+    return final_slides, final_split_flags
 
 # PPT 생성 함수 (이전과 동일)
 def create_ppt(slide_texts, split_flags, max_chars_per_line_in_ppt=18, font_size=54):
