@@ -10,6 +10,10 @@ import re
 import textwrap
 import docx
 from sentence_transformers import SentenceTransformer, util
+import logging
+
+# 로깅 설정 (디버깅용)
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # 2. 함수 정의 (Word 파일 처리)
 def extract_text_from_word(file_path):
@@ -19,7 +23,9 @@ def extract_text_from_word(file_path):
         full_text = []
         for paragraph in doc.paragraphs:
             full_text.append(paragraph.text)
-        return "\n".join(full_text)
+        text = "\n".join(full_text)
+        logging.debug(f"Extract text from Word: {text[:100]}...")  # Log 추출된 텍스트
+        return text
     except FileNotFoundError:
         st.error(f"Error: Word 파일({file_path})을 찾을 수 없습니다.")
         return None
@@ -33,6 +39,7 @@ def extract_text_from_word(file_path):
 # 3. 함수 정의 (텍스트 처리)
 def calculate_text_lines(text, max_chars_per_line):
     """텍스트의 줄 수를 계산합니다."""
+
     lines = 0
     paragraphs = text.split('\n')
     for paragraph in paragraphs:
@@ -65,7 +72,9 @@ def smart_sentence_split(text):
             else:
                 temp.append(temp_sentences[i])
         sentences.extend(temp)
-    return [s.strip() for s in sentences if s.strip()]
+    sentences = [s.strip() for s in sentences if s.strip()]  # Remove empty sentences
+    logging.debug(f"Sentence split: {sentences}")  # Log 분할된 문장들
+    return sentences
 
 def smart_sub_split(sentence):
     """더 복잡한 문장 구조를 고려하여 하위 문장으로 분리합니다."""
@@ -155,6 +164,7 @@ def split_and_group_text_with_embeddings(
     final_split_flags_result = split_flags[:len(final_slides_result)]
     final_slide_numbers_result = slide_numbers[:len(final_slides_result)]
 
+    logging.debug(f"Final slides: {final_slides_result}")  # Log 최종 슬라이드 내용
     return final_slides_result, final_split_flags_result, final_slide_numbers_result
 
 # 5. 함수 정의 (PPT 생성 및 슬라이드 조작)
@@ -168,7 +178,7 @@ def create_ppt(slide_texts, split_flags, slide_numbers, max_chars_per_line_in_pp
 
     for i, text in enumerate(slide_texts):
         try:
-            print(f"Adding text to slide {i+1}: {text[:50]}...")  # 디버깅용 출력
+            logging.debug(f"Adding text to slide {i+1}: {text[:50]}...")  # Log 추가되는 텍스트
             slide = prs.slides.add_slide(prs.slide_layouts[6])  # 제목 슬라이드 레이아웃 사용
             add_text_to_slide(slide, text, font_size, PP_ALIGN.CENTER)
             add_slide_number(slide, slide_numbers[i], total_slides)
@@ -192,7 +202,7 @@ def add_text_to_slide(slide, text, font_size, alignment):
         text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.TOP
         text_frame.word_wrap = True
 
-        wrapped_lines = textwrap.wrap(text, width=18, break_long_words=True)  # 텍스트를 지정된 너비로 줄바꿈
+        wrapped_lines = textwrap.wrap(text, width=max_chars_per_line_in_ppt, break_long_words=True)  # 텍스트를 지정된 너비로 줄바꿈
         for line in wrapped_lines:
             p = text_frame.add_paragraph()
             p.text = line
@@ -204,6 +214,7 @@ def add_text_to_slide(slide, text, font_size, alignment):
             p.vertical_anchor = MSO_VERTICAL_ANCHOR.TOP
 
         text_frame.auto_size = None
+        logging.debug(f"Text added to slide: {text}")  # Log 슬라이드에 추가된 텍스트
     except Exception as e:
         st.error(f"슬라이드에 텍스트를 추가하는 중 오류가 발생했습니다: {e}")
         raise
@@ -289,7 +300,7 @@ font_size_input = st.slider("🅰️ 폰트 크기:", min_value=10, max_value=60
 
 similarity_threshold_input = st.slider(
     "📚 문맥 유지 민감도:",
-    min_value=0.0, max_value=1.0, value=0.85, step=0.05, # value 값을 0.85로 수정
+    min_value=0.0, max_value=1.0, value=0.85, step=0.05,
     help="""
     이 값보다 낮은 문맥 유사도를 가지는 문장 사이에서 슬라이드를 나누는 것을 고려합니다.
     1.0에 가까울수록 문맥을 최대한 유지하며 슬라이드를 분할합니다 (강의용에 적합).
@@ -303,7 +314,7 @@ if st.button("🚀 AI 기반 PPT 만들기", key="create_ppt_button"):
     text = ""
     if uploaded_file is not None:
         text = extract_text_from_word(uploaded_file)
-    elif text_input.strip():
+    elif text_input.stripd(text_input.strip()):
         text = text_input
     else:
         st.warning("Word 파일을 업로드하거나 텍스트를 입력하세요.")
@@ -325,6 +336,9 @@ if st.button("🚀 AI 기반 PPT 만들기", key="create_ppt_button"):
             )
         except Exception as e:
             st.error(f"PPT 생성 중 오류가 발생했습니다: {e}")
+            # 오류 발생 시 사용자에게 더 자세한 정보를 제공하고, 필요한 경우 입력을 수정하도록 안내합니다.
+            st.error(f"오류 내용: {str(e)}")
+            st.stop()  # 오류 발생 시 PPT 생성 중단
 
     if ppt:
         ppt_io = io.BytesIO()
@@ -333,6 +347,7 @@ if st.button("🚀 AI 기반 PPT 만들기", key="create_ppt_button"):
             ppt_io.seek(0)
         except Exception as e:
             st.error(f"PPT 저장 중 오류가 발생했습니다: {e}")
+            st.error(f"오류 내용: {str(e)}")
         else:
             st.download_button(
                 label="📥 PPT 다운로드",
