@@ -12,7 +12,6 @@ import docx  # python-docx 라이브러리 추가
 # Word 파일에서 텍스트 추출하는 함수
 def extract_text_from_word(file_path):
     """Word 파일에서 모든 텍스트를 추출하여 하나의 문자열로 반환합니다."""
-
     doc = docx.Document(file_path)
     full_text = []
     for paragraph in doc.paragraphs:
@@ -49,15 +48,13 @@ def split_and_group_text(text, max_lines_per_slide, max_chars_per_line_ppt):
                 current_slide_text += " "
             current_slide_text += sentence
             current_slide_lines += sentence_lines
-            split_flags.append(False)  # 아직 분할되지 않음
+            split_flags.append(False)
         else:
-            # 현재 슬라이드가 비어있고, 현재 문장이 최대 줄 수를 넘는 경우 분할 시도
             if not current_slide_text and sentence_lines > max_lines_per_slide:
                 words = sentence.split()
                 half_len = len(words) // 2
                 first_half = " ".join(words[:half_len])
                 second_half = " ".join(words[half_len:])
-
                 slides.append(first_half)
                 split_flags.append(True)
                 current_slide_text = second_half
@@ -84,7 +81,7 @@ def create_ppt(slide_texts, split_flags, max_chars_per_line_in_ppt=18, font_size
 
     for i, text in enumerate(slide_texts):
         slide = prs.slides.add_slide(prs.slide_layouts[6])
-        add_text_to_slide(slide, text, font_size, PP_ALIGN.CENTER)  # 가운데 정렬 적용
+        add_text_to_slide(slide, text, font_size, PP_ALIGN.CENTER)
         add_slide_number(slide, i + 1, total_slides)
         if split_flags[i]:
             add_check_needed_shape(slide)
@@ -100,19 +97,17 @@ def add_text_to_slide(slide, text, font_size, alignment):
     text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.TOP
     text_frame.word_wrap = True
 
-    p = text_frame.paragraphs[0]
+    p = text_frame.add_paragraph()
     p.text = text
     p.font.size = Pt(font_size)
     p.font.name = 'Noto Color Emoji'
     p.font.bold = True
     p.font.color.rgb = RGBColor(0, 0, 0)
-    p.alignment = alignment  # 전달받은 정렬 방식 적용
+    p.alignment = alignment
 
-    # 명시적으로 상단 정렬 재적용
     text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.TOP
-    text_frame.auto_size = MSO_AUTO_SIZE.SHAPE_TO_FIT_TEXT # 텍스트에 맞춰 크기 자동 조절
+    text_frame.auto_size = MSO_AUTO_SIZE.SHAPE_TO_FIT_TEXT
 
-    # 줄바꿈 시 띄어쓰기 단위 처리 (textwrap 사용)
     wrapped_lines = textwrap.wrap(text, width=18, break_long_words=False)
     text_frame.clear()
     for line in wrapped_lines:
@@ -124,7 +119,8 @@ def add_text_to_slide(slide, text, font_size, alignment):
         p.font.color.rgb = RGBColor(0, 0, 0)
         p.alignment = alignment
 
-    text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.MIDDLE
+    # 명시적으로 텍스트 프레임의 세로 정렬을 다시 설정
+    text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.TOP
 
 
 def add_slide_number(slide, current, total):
