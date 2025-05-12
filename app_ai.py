@@ -343,3 +343,7 @@ if st.button("🚀 AI 기반 PPT 만들기", key="create_ppt_button"):
         st.download_button(
             label="📥 PPT 다운로드",
             data=ppt_io,
+            file_name="paydo_script_ai.pptx",
+            mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            key="ppt_download_button"
+        )
