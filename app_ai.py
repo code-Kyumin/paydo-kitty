@@ -192,10 +192,11 @@ def create_ppt(slide_texts, split_flags, slide_numbers, max_chars_per_line_in_pp
 
     return prs
 
-def add_text_to_slide(slide, text, font_size, alignment, max_chars_per_line):  # max_chars_per_line 추가
+def add_text_to_slide(slide, text, font_size, alignment, max_chars_per_line):
     """슬라이드에 텍스트를 추가하고, 폰트, 크기, 정렬 등을 설정합니다."""
 
     try:
+        logging.debug(f"add_text_to_slide called with max_chars_per_line: {max_chars_per_line}")  # Log 추가
         textbox = slide.shapes.add_textbox(Inches(0.5), Inches(0.3), Inches(12.33), Inches(6.2))
         text_frame = textbox.text_frame
         text_frame.clear()
