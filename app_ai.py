@@ -284,5 +284,41 @@ text_input = st.text_area("또는 텍스트 직접 입력:", height=300, key="te
 max_lines_per_slide_input = st.slider(
     "📄 슬라이드당 최대 줄 수:", min_value=1, max_value=10, value=5, key="max_lines_slider"
 )
-max_chars_per_line_ppt_input = st.slider(
-    "📏 한 줄당 최대 글자 수 (PPT 표시):", min_value=3, max_value=30, value=18, key="max_chars_slider_ppt
+max_chars_per_line_ppt_input = st.slider(  # SyntaxError 발생 줄
+    "📏 한 줄당 최대 글자 수 (PPT 표시):", min_value=3, max_value=30, value=18, key="max_chars_slider_ppt"
+)
+font_size_input = st.slider("🅰️ 폰트 크기:", min_value=10, max_value=60, value=54, key="font_size_slider")
+
+similarity_threshold_input = st.slider(
+    "📚 문맥 유지 민감도:",  # 사용자 친화적인 이름
+    min_value=0.0,
+    max_value=1.0,
+    value=0.85,  # 더 높은 기본값
+    step=0.05,
+    help="""
+    이 값을 조절하여 슬라이드 분할 시 문맥을 얼마나 중요하게 고려할지 결정합니다.
+    - 1.0에 가까울수록 문맥을 최대한 유지하며 슬라이드를 분할합니다 (강의용에 적합).
+    - 0.0에 가까울수록 문맥보다 슬라이드 길이를 우선하여 분할합니다.
+    """
+)
+
+max_slide_length_input = st.slider(
+    "📝 슬라이드당 최대 글자 수:",  # 새로운 옵션
+    min_value=100,
+    max_value=500,
+    value=300,  # 적절한 기본값
+    step=50,
+    help="한 슬라이드에 포함될 최대 글자 수를 설정합니다. 강사가 한 슬라이드를 너무 오래 읽지 않도록 돕습니다."
+)
+
+if st.button("🚀 AI 기반 PPT 만들기", key="create_ppt_button"):
+    text = ""
+    if uploaded_file is not None:
+        text = extract_text_from_word(uploaded_file)
+    elif text_input.strip():
+        text = text_input
+    else:
+        st.warning("Word 파일을 업로드하거나 텍스트를 입력하세요.")
+        st.stop()
+
+    slide_texts, split_flags = split_and_group_text_with_embeddings
