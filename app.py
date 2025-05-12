@@ -120,9 +120,10 @@ def create_slide(prs, lines, current_idx, total_slides, font_size, is_split):
     slide = prs.slides.add_slide(prs.slide_layouts[6])
     textbox = slide.shapes.add_textbox(Inches(0.5), Inches(0.3), Inches(12.33), Inches(6.2))
     tf = textbox.text_frame
-    tf.vertical_anchor = MSO_VERTICAL_ANCHOR.TOP  # 상단 정렬
+    tf.vertical_anchor = MSO_VERTICAL_ANCHOR.TOP  # 텍스트 박스 내 상단 정렬
     tf.word_wrap = True
     tf.clear()
+    tf.auto_size = MSO_AUTO_SIZE.SHAPE_TO_FIT_TEXT # 텍스트에 맞춰 크기 자동 조절
 
     # 텍스트를 한 줄씩 추가하고, 각 줄의 폰트 설정을 적용
     for line in lines:
@@ -132,9 +133,7 @@ def create_slide(prs, lines, current_idx, total_slides, font_size, is_split):
         p.font.name = 'Noto Color Emoji'
         p.font.bold = True
         p.font.color.rgb = RGBColor(0, 0, 0)
-        p.alignment = PP_ALIGN.CENTER
-
-    tf.vertical_anchor = MSO_VERTICAL_ANCHOR.MIDDLE
+        p.alignment = PP_ALIGN.LEFT  # 단락 왼쪽 정렬
 
     # 페이지 번호 (현재 페이지/전체 페이지)
     footer_box = slide.shapes.add_textbox(Inches(11.5), Inches(7.0), Inches(1.5), Inches(0.4))
