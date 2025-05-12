@@ -30,7 +30,7 @@ def sentence_line_count(sentence, max_chars_per_line=35):
         else:
             lines += 1
             current_line_length = len(word)
-            
+
     return lines
 
 # 전체 입력을 문장 단위로 분해하고, 특정 패턴을 별도 처리
@@ -58,10 +58,10 @@ def split_and_group_text(text, separate_pattern=None, max_lines_per_slide=5, min
             # 일반 문장의 경우, 줄 수를 계산하여 슬라이드에 추가
             words = sentence.split()
             lines_needed = len(words)  # 단어 수를 줄 수로 계산 (띄어쓰기 기준)
-            
+
             # 최소 글자 수를 고려하여 줄 수를 보정
             lines_needed = max(1, (len(sentence) + min_chars_per_line - 1) // min_chars_per_line)
-            
+
             if current_slide_lines + lines_needed <= max_lines_per_slide:
                 current_slide_sentences.append(sentence)
                 current_slide_lines += lines_needed
@@ -84,7 +84,7 @@ def split_text(text):
     return [s.strip() for s in sentences if s.strip()]
 
 # PPT 생성 함수
-def create_ppt(slide_texts, max_chars_per_line_in_ppt=18, max_lines_per_slide=5, font_size=54):
+def create_ppt(slide_texts, split_flags, max_chars_per_line_in_ppt=18, max_lines_per_slide=5, font_size=54):
     prs = Presentation()
     prs.slide_width = Inches(13.33)
     prs.slide_height = Inches(7.5)
@@ -104,8 +104,8 @@ def create_ppt(slide_texts, max_chars_per_line_in_ppt=18, max_lines_per_slide=5,
             total_slides += 1
 
         # 실제 슬라이드 생성
-        for data in slides_data:
-            create_slide(prs, data["lines"], current_slide_idx, total_slides, font_size)
+        for i, data in enumerate(slides_data):
+            create_slide(prs, data["lines"], current_slide_idx, total_slides, font_size, split_flags[i])
             current_slide_idx += 1
 
         return prs
@@ -114,7 +114,7 @@ def create_ppt(slide_texts, max_chars_per_line_in_ppt=18, max_lines_per_slide=5,
         print(f"PPT 생성 중 오류 발생: {e}")
         return None
 
-def create_slide(prs, lines, current_idx, total_slides, font_size):
+def create_slide(prs, lines, current_idx, total_slides, font_size, is_split):
     """실제로 슬라이드를 생성하는 함수"""
 
     slide = prs.slides.add_slide(prs.slide_layouts[6])
@@ -149,6 +149,10 @@ def create_slide(prs, lines, current_idx, total_slides, font_size):
     if current_idx == total_slides:  # 마지막 슬라이드에 '끝' 도형 추가
         add_end_mark(slide)  # 끝 표시 추가 함수 호출
 
+    # 분할된 슬라이드인 경우 "확인 필요!" 박스 추가
+    if is_split:
+        add_check_needed_shape(slide)
+
 def add_end_mark(slide):
     """슬라이드에 '끝' 표시를 추가하는 함수"""
 
@@ -172,6 +176,30 @@ def add_end_mark(slide):
     end_text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.MIDDLE
     end_text_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
 
+def add_check_needed_shape(slide):
+    """슬라이드에 '확인 필요' 표시를 추가하는 함수"""
+
+    check_shape = slide.shapes.add_shape(
+        MSO_SHAPE.RECTANGLE,
+        Inches(0.5),
+        Inches(0.3),
+        Inches(2),
+        Inches(0.5)
+    )
+    check_shape.fill.solid()
+    check_shape.fill.fore_color.rgb = RGBColor(255, 255, 0)  # 노란색
+    check_shape.line.color.rgb = RGBColor(0, 0, 0)  # 검은색 테두리
+
+    check_text_frame = check_shape.text_frame
+    check_text_frame.clear()
+    check_paragraph = check_text_frame.paragraphs[0]
+    check_paragraph.text = "확인 필요!"
+    check_paragraph.font.size = Pt(18)
+    check_paragraph.font.bold = True
+    check_paragraph.font.color.rgb = RGBColor(0, 0, 0)  # 검은색 글자
+    check_text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.MIDDLE
+    check_text_frame.paragraphs[0].alignment = PP_ALIGN.CENTER
+
 # Streamlit UI
 st.set_page_config(page_title="Paydo", layout="centered")
 st.title("🎬 Paydo 촬영 대본 PPT 자동 생성기")
@@ -188,7 +216,6 @@ max_chars_per_line_ppt_input = st.slider("📏 한 줄당 최대 글자 수 (PPT
 min_chars_per_line_input = st.slider("🔤 한 줄당 최소 글자 수:", min_value=1, max_value=10, value=4, key="min_chars_slider")
 font_size_input = st.slider("🅰️ 폰트 크기:", min_value=10, max_value=60, value=54, key="font_size_slider")
 
-
 if st.button("🚀 PPT 만들기", key="create_ppt_button"):
     text = ""
     if uploaded_file is not None:
@@ -200,9 +227,10 @@ if st.button("🚀 PPT 만들기", key="create_ppt_button"):
         st.stop()
 
     slide_texts, split_flags = split_and_group_text(text,
-                                        max_lines_per_slide=max_lines_per_slide_input,
-                                        min_chars_per_line=min_chars_per_line_input)
-    ppt = create_ppt(slide_texts, max_chars_per_line_in_ppt=max_chars_per_line_ppt_input,
+                                                    max_lines_per_slide=max_lines_per_slide_input,
+                                                    min_chars_per_line=min_chars_per_line_input)
+    ppt = create_ppt(slide_texts, split_flags,
+                    max_chars_per_line_in_ppt=max_chars_per_line_ppt_input,
                     max_lines_per_slide=max_lines_per_slide_input,
                     font_size=font_size_input)
 
