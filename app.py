@@ -34,41 +34,36 @@ def sentence_line_count(sentence, max_chars_per_line):
 # 텍스트를 슬라이드로 분할 및 그룹화
 def split_and_group_text(text, max_lines_per_slide, max_chars_per_line_ppt):
     slides = []
-    current_slide_text = ""
-    current_slide_lines = 0
-    sentences = re.split(r'(?<=[.!?])\s+', text.strip())
     split_flags = []
+    sentences = re.split(r'(?<=[.!?])\s+', text.strip())
 
     for sentence in sentences:
         sentence = sentence.strip()
         sentence_lines = sentence_line_count(sentence, max_chars_per_line_ppt)
 
-        if current_slide_lines + sentence_lines <= max_lines_per_slide:
-            if current_slide_text:
-                current_slide_text += " "
-            current_slide_text += sentence
-            current_slide_lines += sentence_lines
-            split_flags.append(False)
-        else:
-            if not current_slide_text and sentence_lines > max_lines_per_slide:
-                words = sentence.split()
-                half_len = len(words) // 2
-                first_half = " ".join(words[:half_len])
-                second_half = " ".join(words[half_len:])
-                slides.append(first_half)
-                split_flags.append(True)
-                current_slide_text = second_half
-                current_slide_lines = sentence_line_count(second_half, max_chars_per_line_ppt)
-                split_flags.append(True)
-            else:
-                slides.append(current_slide_text)
-                current_slide_text = sentence
-                current_slide_lines = sentence_lines
-                split_flags.append(False)
+        if sentence_lines > max_lines_per_slide:
+            # 한 문장이 최대 줄 수를 넘는 경우 분할
+            words = sentence.split()
+            num_words = len(words)
+            words_per_segment = (max_lines_per_slide * max_chars_per_line_ppt) // (len(words[0]) + 1) if words else 1
+            if words_per_segment < 1:
+                words_per_segment = 1  # 최소 1 단어 포함
 
-    if current_slide_text:
-        slides.append(current_slide_text)
-        split_flags.append(False)
+            segments = [words[i:i + words_per_segment] for i in range(0, num_words, words_per_segment)]
+            for segment in segments:
+                slides.append(" ".join(segment))
+                split_flags.append(True)
+        else:
+            # 여러 문장을 합쳐서 슬라이드 생성
+            if not slides or split_flags[-1]:  # 이전 슬라이드가 분할된 경우 새 슬라이드
+                slides.append(sentence)
+                split_flags.append(False)
+            elif sentence_line_count(slides[-1] + " " + sentence, max_chars_per_line_ppt) <= max_lines_per_slide:
+                slides[-1] += " " + sentence
+                split_flags.append(False)
+            else:
+                slides.append(sentence)
+                split_flags.append(False)
 
     return slides, split_flags
 
@@ -119,8 +114,7 @@ def add_text_to_slide(slide, text, font_size, alignment):
         p.font.color.rgb = RGBColor(0, 0, 0)
         p.alignment = alignment
 
-    # 명시적으로 텍스트 프레임의 세로 정렬을 다시 설정
-    text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.TOP
+    text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.MIDDLE
 
 
 def add_slide_number(slide, current, total):
