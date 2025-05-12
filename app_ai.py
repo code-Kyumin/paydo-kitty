@@ -284,7 +284,7 @@ text_input = st.text_area("또는 텍스트 직접 입력:", height=300, key="te
 max_lines_per_slide_input = st.slider(
     "📄 슬라이드당 최대 줄 수:", min_value=1, max_value=10, value=5, key="max_lines_slider"
 )
-max_chars_per_line_ppt_input = st.slider(  # SyntaxError 발생 줄
+max_chars_per_line_ppt_input = st.slider(
     "📏 한 줄당 최대 글자 수 (PPT 표시):", min_value=3, max_value=30, value=18, key="max_chars_slider_ppt"
 )
 font_size_input = st.slider("🅰️ 폰트 크기:", min_value=10, max_value=60, value=54, key="font_size_slider")
@@ -321,4 +321,26 @@ if st.button("🚀 AI 기반 PPT 만들기", key="create_ppt_button"):
         st.warning("Word 파일을 업로드하거나 텍스트를 입력하세요.")
         st.stop()
 
-    slide_texts, split_flags = split_and_group_text_with_embeddings
+    slide_texts, split_flags = split_and_group_text_with_embeddings(
+        text,
+        max_lines_per_slide=max_lines_per_slide_input,
+        max_chars_per_line_ppt=max_chars_per_line_ppt_input,
+        similarity_threshold=similarity_threshold_input,
+        max_slide_length=max_slide_length_input,  # 새로운 옵션 전달
+    )
+    ppt = create_ppt(
+        slide_texts,
+        split_flags,
+        max_chars_per_line_in_ppt=max_chars_per_line_ppt_input,
+        font_size=font_size_input,
+    )
+
+    if ppt:
+        ppt_io = io.BytesIO()
+        ppt.save(ppt_io)
+        ppt_io.seek(0)
+
+        st.download_button(
+            label="📥 PPT 다운로드",
+            data=ppt_io,
+            file_name="paydo_script_ai
