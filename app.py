@@ -33,35 +33,25 @@ def calculate_text_lines(text, max_chars_per_line):
 def split_and_group_text(text, max_lines_per_slide, max_chars_per_line_ppt):
     slides = []
     split_flags = []
-    paragraphs = text.strip().split('\n')
-    max_chars_per_segment = 60
+    lines = text.strip().split('\n')
 
-    for paragraph in paragraphs:
-        paragraph = paragraph.strip()
-        lines_in_paragraph = textwrap.wrap(paragraph, width=max_chars_per_line_ppt, break_long_words=True)
+    for line in lines:
+        line = line.strip()
+        line_count = calculate_text_lines(line, max_chars_per_line_ppt)
 
-        current_slide_text = ""
-        current_slide_lines = 0
-
-        for line in lines_in_paragraph:
-            line_count = calculate_text_lines(line, max_chars_per_line_ppt)
-            if current_slide_lines + line_count <= max_lines_per_slide:
-                if current_slide_text:
-                    current_slide_text += "\n"
-                current_slide_text += line
-                current_slide_lines += line_count
-            else:
-                slides.append(current_slide_text)
-                split_flags.append(False)
-                current_slide_text = line
-                current_slide_lines = line_count
-
-        if current_slide_text:
-            slides.append(current_slide_text)
+        if not slides:
+            slides.append(line)
             split_flags.append(False)
+        elif calculate_text_lines(slides[-1] + "\n" + line, max_chars_per_line_ppt) <= max_lines_per_slide:
+            slides[-1] += "\n" + line
+            split_flags[-1] = False # 마지막 슬라이드는 분할되지 않음
+        else:
+            slides.append(line)
+            split_flags.append(False) # 새로운 슬라이드
 
     final_slides = []
     final_split_flags = []
+    max_chars_per_segment = 60
 
     for i, slide_text in enumerate(slides):
         if calculate_text_lines(slide_text, max_chars_per_line_ppt) > max_lines_per_slide:
@@ -114,6 +104,7 @@ def split_and_group_text(text, max_lines_per_slide, max_chars_per_line_ppt):
 
     return final_slides, final_split_flags
 
+# PPT 생성 함수
 def create_ppt(slide_texts, split_flags, max_chars_per_line_in_ppt=18, font_size=54):
     prs = Presentation()
     prs.slide_width = Inches(13.33)
@@ -124,7 +115,7 @@ def create_ppt(slide_texts, split_flags, max_chars_per_line_in_ppt=18, font_size
         slide = prs.slides.add_slide(prs.slide_layouts[6])
         add_text_to_slide(slide, text, font_size, PP_ALIGN.CENTER)
         add_slide_number(slide, i + 1, total_slides)
-        if split_flags[i]: # <- 여기를 split_flags로 유지 (create_ppt 호출 시 final_split_flags 전달)
+        if split_flags[i]:
             add_check_needed_shape(slide)
         if i == total_slides - 1:
             add_end_mark(slide)
@@ -135,10 +126,10 @@ def add_text_to_slide(slide, text, font_size, alignment):
     textbox = slide.shapes.add_textbox(Inches(0.5), Inches(0.3), Inches(12.33), Inches(6.2))
     text_frame = textbox.text_frame
     text_frame.clear()
-    text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.TOP
+    text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.TOP  # 상단 정렬 명시적으로 설정
     text_frame.word_wrap = True
 
-    wrapped_lines = textwrap.wrap(text, width=18, break_long_words=True)
+    wrapped_lines = textwrap.wrap(text, width=18, break_long_words=True)  # 긴 단어 분리 활성화
     text_frame.clear()
     for line in wrapped_lines:
         p = text_frame.add_paragraph()
@@ -150,8 +141,10 @@ def add_text_to_slide(slide, text, font_size, alignment):
         p.alignment = alignment
         p.vertical_anchor = MSO_VERTICAL_ANCHOR.TOP
 
+    # 텍스트 박스의 자동 맞춤 기능 제거 (상단 정렬에 영향 줄 수 있음)
     text_frame.auto_size = None
     text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.TOP
+
 
 def add_slide_number(slide, current, total):
     footer_box = slide.shapes.add_textbox(Inches(11.5), Inches(7.0), Inches(1.5), Inches(0.4))
@@ -212,8 +205,12 @@ def add_check_needed_shape(slide):
 st.set_page_config(page_title="Paydo", layout="centered")
 st.title("🎬 Paydo 촬영 대본 PPT 자동 생성기")
 
+# Word 파일 업로드 기능 추가
 uploaded_file = st.file_uploader("📝 Word 파일 업로드", type=["docx"])
+
 text_input = st.text_area("또는 텍스트 직접 입력:", height=300, key="text_input_area")
+
+# UI에서 사용자로부터 직접 값을 입력받도록 슬라이더 추가
 max_lines_per_slide_input = st.slider("📄 슬라이드당 최대 줄 수:", min_value=1, max_value=10, value=5, key="max_lines_slider")
 max_chars_per_line_ppt_input = st.slider("📏 한 줄당 최대 글자 수 (PPT 표시):", min_value=3, max_value=30, value=18, key="max_chars_slider_ppt")
 font_size_input = st.slider("🅰️ 폰트 크기:", min_value=10, max_value=60, value=54, key="font_size_slider")
