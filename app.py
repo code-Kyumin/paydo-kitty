@@ -52,7 +52,7 @@ def split_and_group_text(text, max_lines_per_slide, max_chars_per_line_ppt):
             segments = [words[i:i + words_per_segment] for i in range(0, num_words, words_per_segment)]
             for segment in segments:
                 slides.append(" ".join(segment))
-                split_flags.append(True)
+                split_flags.append(True)  # 분할된 슬라이드임을 표시
         else:
             # 여러 문장을 합쳐서 슬라이드 생성
             if not slides or split_flags[-1]:  # 이전 슬라이드가 분할된 경우 새 슬라이드
