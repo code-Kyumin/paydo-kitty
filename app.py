@@ -34,6 +34,7 @@ def split_and_group_text(text, max_lines_per_slide, max_chars_per_line_ppt):
     slides = []
     split_flags = []
     paragraphs = text.strip().split('\n')
+    max_chars_per_segment = 60
 
     for paragraph in paragraphs:
         paragraph = paragraph.strip()
@@ -61,7 +62,6 @@ def split_and_group_text(text, max_lines_per_slide, max_chars_per_line_ppt):
 
     final_slides = []
     final_split_flags = []
-    max_chars_per_segment = 60
 
     for i, slide_text in enumerate(slides):
         if calculate_text_lines(slide_text, max_chars_per_line_ppt) > max_lines_per_slide:
@@ -96,12 +96,12 @@ def split_and_group_text(text, max_lines_per_slide, max_chars_per_line_ppt):
                             segment += word
                         else:
                             final_slides.append(segment)
-                            final_split_flags.append(True)
+                            final_split_flags.append(True) # 강제 분할 발생
                             segment = word
                             is_forced_split = True
                     if segment:
                         final_slides.append(segment)
-                        final_split_flags.append(True)
+                        final_split_flags.append(True) # 강제 분할 발생
                 else:
                     final_slides.append(temp_slide_text)
                     final_split_flags.append(False)
@@ -259,8 +259,8 @@ if st.button("🚀 PPT 만들기", key="create_ppt_button"):
             mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
             key="download_button"
         )
-        if any(split_flags):
-            split_slide_numbers = [i + 1 for i, flag in enumerate(split_flags) if flag]
-            st.warning(f"❗️ 일부 슬라이드({split_slide_numbers})는 한 문장이 너무 길어 분할되었습니다. PPT를 확인하여 가독성을 검토해주세요.")
+        if any(True in final_split_flags):
+            split_slide_numbers = [i + 1 for i, flag in enumerate(final_split_flags) if flag]
+            st.warning(f"❗️ 일부 슬라이드({split_slide_numbers})는 한 문장이 너무 길어 강제로 분할되었습니다. PPT를 확인하여 가독성을 검토해주세요.")
     else:
         st.error("❌ PPT 생성에 실패했습니다.")
