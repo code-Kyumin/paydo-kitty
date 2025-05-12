@@ -33,11 +33,10 @@ def calculate_text_lines(text, max_chars_per_line):
 def split_and_group_text(text, max_lines_per_slide, max_chars_per_line_ppt):
     slides = []
     split_flags = []
-    # 1차 분리: 개행 문자 기준
     lines = text.strip().split('\n')
-    current_slide_lines = 0
     current_slide_text = ""
-    max_chars_per_segment = 60  # 공백 제외 최대 글자 수
+    current_slide_lines = 0
+    max_chars_per_segment = 60
 
     for line in lines:
         line = line.strip()
@@ -48,25 +47,21 @@ def split_and_group_text(text, max_lines_per_slide, max_chars_per_line_ppt):
                 current_slide_text += "\n"
             current_slide_text += line
             current_slide_lines += line_count
-            if slides:  # 기존 슬라이드가 있는 경우에만
-                split_flags.append(False) # 개행으로 추가된 슬라이드는 강제 분할 아님
-            elif not slides and lines.index(line) == 0:
-                split_flags.append(False) # 첫 번째 슬라이드
         else:
-            if current_slide_text:
-                slides.append(current_slide_text)
+            slides.append(current_slide_text)
+            split_flags.append(False) # 개행으로 인한 분할은 강제 분할 아님
             current_slide_text = line
             current_slide_lines = line_count
-            split_flags.append(True) # 새로운 슬라이드 시작 (개행으로 인한 분할)
 
     if current_slide_text:
         slides.append(current_slide_text)
+        split_flags.append(False)
 
     final_slides = []
     final_split_flags = []
     for i, slide_text in enumerate(slides):
-        original_sentence = slide_text.replace('\n', ' ') # 개행을 공백으로 합쳐 원래 문장처럼 처리
         if calculate_text_lines(slide_text, max_chars_per_line_ppt) > max_lines_per_slide:
+            original_sentence = slide_text.replace('\n', ' ')
             sub_sentences = re.split(r'(?<=[.?!;])\s+', original_sentence.strip())
             temp_slide_text = ""
             temp_slide_lines = 0
@@ -81,10 +76,10 @@ def split_and_group_text(text, max_lines_per_slide, max_chars_per_line_ppt):
                     temp_slide_lines += sub_sentence_lines
                 else:
                     final_slides.append(temp_slide_text)
-                    final_split_flags.append(is_forced_split) # 이전 슬라이드가 강제 분할이었는지 유지
+                    final_split_flags.append(is_forced_split)
                     temp_slide_text = sub_sentence
                     temp_slide_lines = sub_sentence_lines
-                    is_forced_split = False # 새로운 슬라이드는 아직 강제 분할 아님
+                    is_forced_split = False
 
             if temp_slide_text:
                 if calculate_text_lines(temp_slide_text, max_chars_per_line_ppt) > max_lines_per_slide:
@@ -97,26 +92,25 @@ def split_and_group_text(text, max_lines_per_slide, max_chars_per_line_ppt):
                             segment += word
                         else:
                             final_slides.append(segment)
-                            final_split_flags.append(True) # 강제 분할 발생
+                            final_split_flags.append(True)
                             segment = word
                             is_forced_split = True
                     if segment:
                         final_slides.append(segment)
-                        final_split_flags.append(True) # 강제 분할 발생
+                        final_split_flags.append(True)
                 else:
                     final_slides.append(temp_slide_text)
-                    final_split_flags.append(False) # 문장 단위 분할
+                    final_split_flags.append(False)
         else:
             final_slides.append(slide_text)
             final_split_flags.append(False)
 
-    # 빈 슬라이드 제거
     final_slides = [slide for slide in final_slides if slide.strip()]
     final_split_flags = final_split_flags[:len(final_slides)]
 
     return final_slides, final_split_flags
 
-# PPT 생성 함수 (이전과 동일)
+# PPT 생성 함수
 def create_ppt(slide_texts, split_flags, max_chars_per_line_in_ppt=18, font_size=54):
     prs = Presentation()
     prs.slide_width = Inches(13.33)
@@ -134,7 +128,6 @@ def create_ppt(slide_texts, split_flags, max_chars_per_line_in_ppt=18, font_size
 
     return prs
 
-# 텍스트를 슬라이드에 추가하는 함수 (이전과 동일)
 def add_text_to_slide(slide, text, font_size, alignment):
     textbox = slide.shapes.add_textbox(Inches(0.5), Inches(0.3), Inches(12.33), Inches(6.2))
     text_frame = textbox.text_frame
@@ -214,7 +207,7 @@ def add_check_needed_shape(slide):
     text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.MIDDLE
     p.alignment = PP_ALIGN.CENTER
 
-# Streamlit UI (이전과 동일)
+# Streamlit UI
 st.set_page_config(page_title="Paydo", layout="centered")
 st.title("🎬 Paydo 촬영 대본 PPT 자동 생성기")
 
