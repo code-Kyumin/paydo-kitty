@@ -34,31 +34,25 @@ def split_and_group_text(text, max_lines_per_slide, max_chars_per_line_ppt):
     slides = []
     split_flags = []
     lines = text.strip().split('\n')
-    current_slide_text = ""
-    current_slide_lines = 0
-    max_chars_per_segment = 60
 
     for line in lines:
         line = line.strip()
         line_count = calculate_text_lines(line, max_chars_per_line_ppt)
 
-        if current_slide_lines + line_count <= max_lines_per_slide:
-            if current_slide_text:
-                current_slide_text += "\n"
-            current_slide_text += line
-            current_slide_lines += line_count
+        if not slides:
+            slides.append(line)
+            split_flags.append(False)
+        elif calculate_text_lines(slides[-1] + "\n" + line, max_chars_per_line_ppt) <= max_lines_per_slide:
+            slides[-1] += "\n" + line
+            split_flags[-1] = False # 마지막 슬라이드는 분할되지 않음
         else:
-            slides.append(current_slide_text)
-            split_flags.append(False) # 개행으로 인한 분할은 강제 분할 아님
-            current_slide_text = line
-            current_slide_lines = line_count
-
-    if current_slide_text:
-        slides.append(current_slide_text)
-        split_flags.append(False)
+            slides.append(line)
+            split_flags.append(False) # 새로운 슬라이드
 
     final_slides = []
     final_split_flags = []
+    max_chars_per_segment = 60
+
     for i, slide_text in enumerate(slides):
         if calculate_text_lines(slide_text, max_chars_per_line_ppt) > max_lines_per_slide:
             original_sentence = slide_text.replace('\n', ' ')
