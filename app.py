@@ -33,21 +33,31 @@ def calculate_text_lines(text, max_chars_per_line):
 def split_and_group_text(text, max_lines_per_slide, max_chars_per_line_ppt):
     slides = []
     split_flags = []
-    lines = text.strip().split('\n')
+    paragraphs = text.strip().split('\n')
 
-    for line in lines:
-        line = line.strip()
-        line_count = calculate_text_lines(line, max_chars_per_line_ppt)
+    for paragraph in paragraphs:
+        paragraph = paragraph.strip()
+        lines_in_paragraph = textwrap.wrap(paragraph, width=max_chars_per_line_ppt, break_long_words=True)
 
-        if not slides:
-            slides.append(line)
+        current_slide_text = ""
+        current_slide_lines = 0
+
+        for line in lines_in_paragraph:
+            line_count = calculate_text_lines(line, max_chars_per_line_ppt)
+            if current_slide_lines + line_count <= max_lines_per_slide:
+                if current_slide_text:
+                    current_slide_text += "\n"
+                current_slide_text += line
+                current_slide_lines += line_count
+            else:
+                slides.append(current_slide_text)
+                split_flags.append(False)
+                current_slide_text = line
+                current_slide_lines = line_count
+
+        if current_slide_text:
+            slides.append(current_slide_text)
             split_flags.append(False)
-        elif calculate_text_lines(slides[-1] + "\n" + line, max_chars_per_line_ppt) <= max_lines_per_slide:
-            slides[-1] += "\n" + line
-            split_flags[-1] = False # 마지막 슬라이드는 분할되지 않음
-        else:
-            slides.append(line)
-            split_flags.append(False) # 새로운 슬라이드
 
     final_slides = []
     final_split_flags = []
