@@ -7,9 +7,8 @@ from pptx.enum.shapes import MSO_SHAPE
 import io
 import re
 import textwrap
-import docx  # python-docx 라이브러리 추가
+import docx
 
-# Word 파일에서 텍스트 추출하는 함수
 def extract_text_from_word(file_path):
     doc = docx.Document(file_path)
     full_text = []
@@ -32,6 +31,9 @@ def split_and_group_text(text, max_lines_per_slide, max_chars_per_line_ppt):
     split_flags = []
     paragraphs = text.strip().split('\n')
     max_chars_per_segment = 60
+    final_slides = []
+    final_split_flags = []
+    force_split_indices = []  # 강제 분할 슬라이드 인덱스 저장
 
     for paragraph in paragraphs:
         paragraph = paragraph.strip()
@@ -57,34 +59,34 @@ def split_and_group_text(text, max_lines_per_slide, max_chars_per_line_ppt):
             slides.append(current_slide_text)
             split_flags.append(False)
 
-    final_slides = []
-    final_split_flags = []
+    temp_final_slides = []
+    temp_final_split_flags = []
 
     for i, slide_text in enumerate(slides):
         if calculate_text_lines(slide_text, max_chars_per_line_ppt) > max_lines_per_slide:
             original_sentence = slide_text.replace('\n', ' ')
             sub_sentences = re.split(r'(?<=[.?!;])\s+', original_sentence.strip())
-            temp_slide_text = ""
-            temp_slide_lines = 0
+            temp_sub_slide_text = ""
+            temp_sub_slide_lines = 0
             is_forced_split = False
             for sub_sentence in sub_sentences:
                 sub_sentence = sub_sentence.strip()
                 sub_sentence_lines = calculate_text_lines(sub_sentence, max_chars_per_line_ppt)
-                if temp_slide_lines + sub_sentence_lines <= max_lines_per_slide:
-                    if temp_slide_text:
-                        temp_slide_text += " "
-                    temp_slide_text += sub_sentence
-                    temp_slide_lines += sub_sentence_lines
+                if temp_sub_slide_lines + sub_sentence_lines <= max_lines_per_slide:
+                    if temp_sub_slide_text:
+                        temp_sub_slide_text += " "
+                    temp_sub_slide_text += sub_sentence
+                    temp_sub_slide_lines += sub_sentence_lines
                 else:
-                    final_slides.append(temp_slide_text)
-                    final_split_flags.append(is_forced_split)
-                    temp_slide_text = sub_sentence
-                    temp_slide_lines = sub_sentence_lines
+                    temp_final_slides.append(temp_sub_slide_text)
+                    temp_final_split_flags.append(is_forced_split)
+                    temp_sub_slide_text = sub_sentence
+                    temp_sub_slide_lines = sub_sentence_lines
                     is_forced_split = False
 
-            if temp_slide_text:
-                if calculate_text_lines(temp_slide_text, max_chars_per_line_ppt) > max_lines_per_slide:
-                    words = temp_slide_text.split()
+            if temp_sub_slide_text:
+                if calculate_text_lines(temp_sub_slide_text, max_chars_per_line_ppt) > max_lines_per_slide:
+                    words = temp_sub_slide_text.split()
                     segment = ""
                     for word in words:
                         if len(segment.replace(" ", "")) + len(word) + (1 if segment else 0) <= max_chars_per_segment:
@@ -92,24 +94,26 @@ def split_and_group_text(text, max_lines_per_slide, max_chars_per_line_ppt):
                                 segment += " "
                             segment += word
                         else:
-                            final_slides.append(segment)
-                            final_split_flags.append(True) # 강제 분할 발생
+                            temp_final_slides.append(segment)
+                            temp_final_split_flags.append(True) # 강제 분할 발생
+                            force_split_indices.append(len(temp_final_slides) - 1) # 인덱스 저장
                             segment = word
                             is_forced_split = True
                     if segment:
-                        final_slides.append(segment)
-                        final_split_flags.append(True) # 강제 분할 발생
+                        temp_final_slides.append(segment)
+                        temp_final_split_flags.append(True) # 강제 분할 발생
+                        force_split_indices.append(len(temp_final_slides) - 1) # 인덱스 저장
                 else:
-                    final_slides.append(temp_slide_text)
-                    final_split_flags.append(False)
+                    temp_final_slides.append(temp_sub_slide_text)
+                    temp_final_split_flags.append(False)
         else:
-            final_slides.append(slide_text)
-            final_split_flags.append(False)
+            temp_final_slides.append(slide_text)
+            temp_final_split_flags.append(False)
 
-    final_slides = [slide for slide in final_slides if slide.strip()]
-    final_split_flags = final_split_flags[:len(final_slides)]
+    final_slides = [slide for slide in temp_final_slides if slide.strip()]
+    final_split_flags = temp_final_split_flags[:len(final_slides)]
 
-    return final_slides, final_split_flags
+    return final_slides, final_split_flags, force_split_indices
 
 def create_ppt(slide_texts, split_flags, max_chars_per_line_in_ppt=18, font_size=54):
     prs = Presentation()
@@ -121,7 +125,7 @@ def create_ppt(slide_texts, split_flags, max_chars_per_line_in_ppt=18, font_size
         slide = prs.slides.add_slide(prs.slide_layouts[6])
         add_text_to_slide(slide, text, font_size, PP_ALIGN.CENTER)
         add_slide_number(slide, i + 1, total_slides)
-        if split_flags[i]: # <- 여기를 split_flags로 유지 (create_ppt 호출 시 final_split_flags 전달)
+        if split_flags[i]:
             add_check_needed_shape(slide)
         if i == total_slides - 1:
             add_end_mark(slide)
@@ -225,15 +229,17 @@ if st.button("🚀 PPT 만들기", key="create_ppt_button"):
         st.warning("Word 파일을 업로드하거나 텍스트를 입력하세요.")
         st.stop()
 
-    slide_texts, final_split_flags = split_and_group_text(
+    slide_texts, final_split_flags, force_split_indices = split_and_group_text(
         text,
         max_lines_per_slide=max_lines_per_slide_input,
         max_chars_per_line_ppt=max_chars_per_line_ppt_input
     )
     st.session_state.final_split_flags = final_split_flags
+    st.session_state.force_split_indices = force_split_indices  # 강제 분할 슬라이드 인덱스 저장
 
     # 강제 분할 정보 확인 (디버깅용)
     st.write("final_split_flags:", st.session_state.final_split_flags)
+    st.write("force_split_indices:", st.session_state.force_split_indices)
 
     ppt = create_ppt(
         slide_texts,
@@ -254,8 +260,8 @@ if st.button("🚀 PPT 만들기", key="create_ppt_button"):
             mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
             key="download_button"
         )
-        if "final_split_flags" in st.session_state and any(st.session_state.final_split_flags):
-            split_slide_numbers = [i + 1 for i, flag in enumerate(st.session_state.final_split_flags) if flag]
+        if "force_split_indices" in st.session_state and st.session_state.force_split_indices:
+            split_slide_numbers = [i + 1 for i in st.session_state.force_split_indices]
             st.warning(f"❗️ 일부 슬라이드({split_slide_numbers})는 한 문장이 너무 길어 강제로 분할되었습니다. PPT를 확인하여 가독성을 검토해주세요.")
     else:
         st.error("❌ PPT 생성에 실패했습니다.")
