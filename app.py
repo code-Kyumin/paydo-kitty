@@ -7,6 +7,17 @@ from pptx.enum.shapes import MSO_SHAPE
 import io
 import re
 import textwrap
+import docx  # python-docx 라이브러리 추가
+
+# Word 파일에서 텍스트 추출하는 함수
+def extract_text_from_word(file_path):
+    """Word 파일에서 모든 텍스트를 추출하여 하나의 문자열로 반환합니다."""
+
+    doc = docx.Document(file_path)
+    full_text = []
+    for paragraph in doc.paragraphs:
+        full_text.append(paragraph.text)
+    return "\n".join(full_text)
 
 # 문장이 차지할 줄 수 계산 (단어 잘림 방지)
 def sentence_line_count(sentence, max_chars_per_line=35):
@@ -158,10 +169,10 @@ def add_end_mark(slide):
 st.set_page_config(page_title="Paydo", layout="centered")
 st.title("🎬 Paydo 촬영 대본 PPT 자동 생성기")
 
-text_input = st.text_area("📝 촬영 대본을 입력하세요:", height=300, key="text_input_area")
+# Word 파일 업로드 기능 추가
+uploaded_file = st.file_uploader("📝 Word 파일 업로드", type=["docx"])
 
-# "분리할 텍스트 패턴" 입력란에서 기본값 제거
-separate_pattern_input = st.text_input("🔍 분리할 텍스트 패턴 (정규 표현식):", key="separate_pattern_input")
+text_input = st.text_area("또는 텍스트 직접 입력:", height=300, key="text_input_area")
 
 # UI에서 사용자로부터 직접 값을 입력받도록 슬라이더 추가
 max_lines_per_slide_input = st.slider("📄 슬라이드당 최대 줄 수:", min_value=1, max_value=10, value=5, key="max_lines_slider")
@@ -170,30 +181,35 @@ max_chars_per_line_ppt_input = st.slider("📏 한 줄당 최대 글자 수 (PPT
 min_chars_per_line_input = st.slider("🔤 한 줄당 최소 글자 수:", min_value=1, max_value=10, value=4, key="min_chars_slider")
 font_size_input = st.slider("🅰️ 폰트 크기:", min_value=10, max_value=60, value=54, key="font_size_slider")
 
-# PPT 생성 버튼을 항상 표시하도록 수정
+
 if st.button("🚀 PPT 만들기", key="create_ppt_button"):
-    if text_input.strip():
-        # 수정된 함수 호출
-        slide_texts = split_and_group_text(text_input, separate_pattern=separate_pattern_input,
-                                            max_lines_per_slide=max_lines_per_slide_input,
-                                            min_chars_per_line=min_chars_per_line_input)
-        ppt = create_ppt(slide_texts, max_chars_per_line_in_ppt=max_chars_per_line_ppt_input,
-                        max_lines_per_slide=max_lines_per_slide_input,
-                        font_size=font_size_input)
-
-        if ppt:
-            ppt_io = io.BytesIO()
-            ppt.save(ppt_io)
-            ppt_io.seek(0)
-
-            st.download_button(
-                label="📥 PPT 다운로드",
-                data=ppt_io,
-                file_name="paydo_script.pptx",
-                mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
-                key="download_button"
-            )
-        else:
-            st.error("❌ PPT 생성에 실패했습니다.")
+    text = ""
+    if uploaded_file is not None:
+        text = extract_text_from_word(uploaded_file)
+    elif text_input.strip():
+        text = text_input
     else:
-        st.warning("텍스트를 입력하세요.")
+        st.warning("Word 파일을 업로드하거나 텍스트를 입력하세요.")
+        st.stop()
+
+    slide_texts = split_and_group_text(text,
+                                        max_lines_per_slide=max_lines_per_slide_input,
+                                        min_chars_per_line=min_chars_per_line_input)
+    ppt = create_ppt(slide_texts, max_chars_per_line_in_ppt=max_chars_per_line_ppt_input,
+                    max_lines_per_slide=max_lines_per_slide_input,
+                    font_size=font_size_input)
+
+    if ppt:
+        ppt_io = io.BytesIO()
+        ppt.save(ppt_io)
+        ppt_io.seek(0)
+
+        st.download_button(
+            label="📥 PPT 다운로드",
+            data=ppt_io,
+            file_name="paydo_script.pptx",
+            mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            key="download_button"
+        )
+    else:
+        st.error("❌ PPT 생성에 실패했습니다.")
