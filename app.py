@@ -132,13 +132,14 @@ def add_end_mark(slide):
     end_shape.fill.fore_color.rgb = RGBColor(255, 0, 0)
     end_shape.line.color.rgb = RGBColor(0, 0, 0)
 
+    end_text_frame = end_shape.text_frame # 이 줄이 문제의 원인이었습니다. 제거합니다.
     end_text_frame = end_shape.text_frame
     end_text_frame.clear()
     p = end_text_frame.paragraphs[0]
     p.text = "끝"
     p.font.size = Pt(36)
     p.font.color.rgb = RGBColor(255, 255, 255)
-    text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.MIDDLE
+    end_text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.MIDDLE
     p.alignment = PP_ALIGN.CENTER
 
 def add_check_needed_shape(slide):
@@ -160,7 +161,7 @@ def add_check_needed_shape(slide):
     p.font.size = Pt(18)
     p.font.bold = True
     p.font.color.rgb = RGBColor(0, 0, 0)
-    text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.MIDDLE
+    text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.MIDDLE # 이 줄에서 text_frame이 정의되지 않았을 수 있습니다.
     p.alignment = PP_ALIGN.CENTER
 
 # Streamlit UI
