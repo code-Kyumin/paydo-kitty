@@ -235,14 +235,15 @@ if st.button("🚀 PPT 만들기", key="create_ppt_button"):
         st.warning("Word 파일을 업로드하거나 텍스트를 입력하세요.")
         st.stop()
 
-    slide_texts, split_flags = split_and_group_text(
+    slide_texts, final_split_flags = split_and_group_text(
         text,
         max_lines_per_slide=max_lines_per_slide_input,
         max_chars_per_line_ppt=max_chars_per_line_ppt_input
     )
+    st.session_state.final_split_flags = final_split_flags # 세션 상태에 저장
     ppt = create_ppt(
         slide_texts,
-        split_flags,
+        final_split_flags,
         max_chars_per_line_in_ppt=max_chars_per_line_ppt_input,
         font_size=font_size_input
     )
@@ -259,8 +260,8 @@ if st.button("🚀 PPT 만들기", key="create_ppt_button"):
             mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
             key="download_button"
         )
-        if any(final_split_flags):
-            split_slide_numbers = [i + 1 for i, flag in enumerate(final_split_flags) if flag]
+        if "final_split_flags" in st.session_state and any(st.session_state.final_split_flags):
+            split_slide_numbers = [i + 1 for i, flag in enumerate(st.session_state.final_split_flags) if flag]
             st.warning(f"❗️ 일부 슬라이드({split_slide_numbers})는 한 문장이 너무 길어 강제로 분할되었습니다. PPT를 확인하여 가독성을 검토해주세요.")
     else:
         st.error("❌ PPT 생성에 실패했습니다.")
