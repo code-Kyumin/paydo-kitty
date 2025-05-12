@@ -202,7 +202,7 @@ def create_ppt(slide_texts, split_flags, slide_numbers, max_chars_per_line_in_pp
             add_text_to_slide(slide, text, font_size, PP_ALIGN.CENTER)
             add_slide_number(slide, slide_numbers[i], total_slides)  # 슬라이드 번호 전달
             if split_flags[i]:
-                add_check_needed_shape(slide)
+                add_check_needed_shape(slide, slide_numbers[i])  # 슬라이드 번호 전달
             if i == total_slides - 1:
                 add_end_mark(slide)
         except Exception as e:
@@ -269,7 +269,7 @@ def add_end_mark(slide):
     end_text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.MIDDLE
     p.alignment = PP_ALIGN.CENTER
 
-def add_check_needed_shape(slide):
+def add_check_needed_shape(slide, slide_number):
     check_shape = slide.shapes.add_shape(
         MSO_SHAPE.RECTANGLE,
         Inches(0.5),
@@ -284,15 +284,14 @@ def add_check_needed_shape(slide):
     check_text_frame = check_shape.text_frame
     check_text_frame.clear()
     p = check_text_frame.paragraphs[0]
-    p.text = "확인 필요!"
+    p.text = f"확인 필요! (슬라이드 {slide_number})"  # 슬라이드 번호 표시
     p.font.size = Pt(18)
     p.font.bold = True
     p.font.color.rgb = RGBColor(0, 0, 0)
     text_frame = check_shape.text_frame
     text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.MIDDLE
     p.alignment = PP_ALIGN.CENTER
-
-# Streamlit UI
+    # Streamlit UI
 st.set_page_config(page_title="Paydo AI PPT", layout="centered")  # 페이지 제목 변경
 st.title("🎬 AI 기반 촬영 대본 PPT 자동 생성기")  # 타이틀 변경
 
@@ -317,11 +316,44 @@ similarity_threshold_input = st.slider(
     value=0.85,  # 더 높은 기본값
     step=0.05,
     help="""
-    이 값보다 낮은 문맥 유사도를 가지는 문장 사이에서 슬라이드를 나누는 것을 고려합니다.\
-    1.0에 가까울수록 문맥을 최대한 유지하며 슬라이드를 분할합니다 (강의용에 적합).\
-    0.0에 가까울수록 문맥보다 슬라이드 길이를 우선하여 분할합니다.
+    이 값보다 낮은 문맥 유사도를 가지는 문장 사이에서 슬라이드를 나누는 것을 고려합니다.
+    1.0에 가까울수록 문맥을 최대한 유지하며 슬라이드를 분할합니다 (강의용에
+    적합). 0.0에 가까울수록 슬라이드를 더 짧게 나누어 가독성을 높입니다 (발표용에 적합).
     """
 )
 
-max_slide_length_input = st.slider(
-    "📝 슬라이드당 최대 글자 수:",  # 새로운
+if st.button("🚀 AI 기반 PPT 만들기", key="create_ppt_button"):  # 버튼 텍스트 변경
+    text = ""
+    if uploaded_file is not None:
+        text = extract_text_from_word(uploaded_file)
+    elif text_input.strip():
+        text = text_input
+    else:
+        st.warning("Word 파일을 업로드하거나 텍스트를 입력하세요.")
+        st.stop()
+
+    slide_texts, split_flags, slide_numbers = split_and_group_text_with_embeddings(  # AI 기반 함수 호출
+        text,
+        max_lines_per_slide=max_lines_per_slide_input,
+        max_chars_per_line_ppt=max_chars_per_line_ppt_input,
+        similarity_threshold=similarity_threshold_input  # UI에서 입력받은 값 사용
+    )
+    ppt = create_ppt(
+        slide_texts,
+        split_flags,
+        slide_numbers,  # 슬라이드 번호도 create_ppt에 전달
+        max_chars_per_line_in_ppt=max_chars_per_line_ppt_input,
+        font_size=font_size_input
+    )
+
+    if ppt:
+        ppt_io = io.BytesIO()
+        ppt.save(ppt_io)
+        ppt_io.seek(0)
+
+        st.download_button(
+            label="📥 PPT 다운로드",
+            data=ppt_io,
+            file_name="paydo_script_ai.pptx",  # 파일 이름에 "ai" 추가
+            mime="application/vnd.openxmlformats-officedocument.presentationml.presentation"
+        )
