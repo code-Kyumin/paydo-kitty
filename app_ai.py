@@ -9,10 +9,10 @@ import io
 import re
 import textwrap
 import docx
-from sentence_transformers import SentenceTransformer, util  # 임베딩 라이브러리 다시 사용
+from sentence_transformers import SentenceTransformer, util
 import logging
 
-# 로깅 설정 (디버깅용)
+# 로깅 설정
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # 2. 함수 정의 (Word 파일 처리)
@@ -82,11 +82,11 @@ def split_text_into_slides_with_similarity(
     current_slide_text = ""
     current_slide_lines = 0
 
-    model = SentenceTransformer('paraphrase-multilingual-mpnet-base-v2')  # 모델 로드
+    model = SentenceTransformer('paraphrase-multilingual-mpnet-base-v2')
     
     for paragraph in text_paragraphs:
         sentences = smart_sentence_split(paragraph)
-        embeddings = model.encode(sentences) if sentences else []  # 임베딩 계산
+        embeddings = model.encode(sentences) if sentences else []
 
         for i, sentence in enumerate(sentences):
             sentence_lines = calculate_text_lines(sentence, max_chars_per_line_ppt)
@@ -112,13 +112,53 @@ def split_text_into_slides_with_similarity(
                     current_slide_lines += sentence_lines + 1
             else:
                 # 현재 슬라이드에 추가 불가능한 경우
-                slides.append(current_slide_text.strip())
-                split_flags.append(True)
-                slide_numbers.append(slide_number)
-                logging.debug(f"Slide {slide_number}: {current_slide_text[:100]}...")
-                slide_number += 1
-                current_slide_text = sentence + "\n"
-                current_slide_lines = sentence_lines + 1
+                # 남은 줄 수 계산
+                remaining_lines = max_lines_per_slide - current_slide_lines
+
+                # 유사도가 낮은 부분을 찾아 분리
+                if remaining_lines > 0 and len(sentences) > 1:
+                    best_split_index = -1
+                    min_similarity = 1.0  # 가장 낮은 유사도를 찾기 위해 초기값을 1.0으로 설정
+
+                    for j in range(i, len(sentences)):
+                        if current_slide_lines + calculate_text_lines(sentences[j], max_chars_per_line_ppt) + 1 <= max_lines_per_slide:
+                            if j > 0:
+                                similarity = util.cos_sim(embeddings[j - 1], embeddings[j])[0][0].item()
+                                if similarity < min_similarity:
+                                    min_similarity = similarity
+                                    best_split_index = j
+                        else:
+                            break
+
+                    if best_split_index != -1:
+                        # 분리 지점을 찾았으면 슬라이드 분리
+                        split_text = "\n".join(sentences[:best_split_index])
+                        current_slide_text += split_text
+                        slides.append(current_slide_text.strip())
+                        split_flags.append(True)
+                        slide_numbers.append(slide_number)
+                        logging.debug(f"Slide {slide_number}: {current_slide_text[:100]}...")
+                        slide_number += 1
+                        current_slide_text = "\n".join(sentences[best_split_index:]) + "\n"
+                        current_slide_lines = calculate_text_lines(current_slide_text, max_chars_per_line_ppt) + 1
+                    else:
+                        # 분리 지점을 못 찾았으면 현재 슬라이드 추가하고 새 슬라이드 시작
+                        slides.append(current_slide_text.strip())
+                        split_flags.append(True)
+                        slide_numbers.append(slide_number)
+                        logging.debug(f"Slide {slide_number}: {current_slide_text[:100]}...")
+                        slide_number += 1
+                        current_slide_text = sentence + "\n"
+                        current_slide_lines = sentence_lines + 1
+                else:
+                    # 남은 줄 수가 없거나 문장이 하나뿐인 경우 현재 슬라이드 추가하고 새 슬라이드 시작
+                    slides.append(current_slide_text.strip())
+                    split_flags.append(True)
+                    slide_numbers.append(slide_number)
+                    logging.debug(f"Slide {slide_number}: {current_slide_text[:100]}...")
+                    slide_number += 1
+                    current_slide_text = sentence + "\n"
+                    current_slide_lines = sentence_lines + 1
 
     if current_slide_text:  # 마지막 슬라이드 추가
         slides.append(current_slide_text.strip())
@@ -129,8 +169,8 @@ def split_text_into_slides_with_similarity(
     return slides, split_flags, slide_numbers
 
 # 5. 함수 정의 (PPT 생성 및 슬라이드 조작)
-def create_ppt(slide_texts, split_flags, slide_numbers, max_chars_per_line_in_ppt=18, font_size=54):
-    """슬라이드 텍스트를 기반으로 PPT를 생성하고, 슬라이드 번호, '끝' 표시 등을 추가합니다."""
+def create_ppt(slide_texts, split_flags, ui_slide_numbers, max_chars_per_line_in_ppt=18, font_size=54):
+    """슬라이드 텍스트를 기반으로 PPT를 생성하고, '확인 필요!' 표시 등을 추가합니다."""
 
     prs = Presentation()
     prs.slide_width = Inches(13.33)
@@ -142,9 +182,9 @@ def create_ppt(slide_texts, split_flags, slide_numbers, max_chars_per_line_in_pp
             logging.debug(f"슬라이드 {i+1}에 텍스트 추가")
             slide = prs.slides.add_slide(prs.slide_layouts[6])
             add_text_to_slide(slide, text, font_size, PP_ALIGN.CENTER, max_chars_per_line_in_ppt)
-            add_slide_number(slide, slide_numbers[i], total_slides)
-            if split_flags[i] and calculate_text_lines(text, max_chars_per_line_in_ppt) == 1:
-                add_check_needed_shape(slide, slide_numbers[i], slide_numbers[i])
+            # add_slide_number(slide, ui_slide_numbers[i], total_slides)  # 슬라이드 번호 제거
+            if split_flags[i]:
+                add_check_needed_shape(slide, ui_slide_numbers[i])
             if i == total_slides - 1:
                 add_end_mark(slide)
         except Exception as e:
@@ -175,7 +215,7 @@ def add_text_to_slide(slide, text, font_size, alignment, max_chars_per_line):
             p.alignment = alignment
             p.vertical_anchor = MSO_VERTICAL_ANCHOR.TOP
 
-        text_frame.auto_size = None  # 텍스트 프레임 자동 크기 조절 비활성화
+        text_frame.auto_size = None
         logging.debug(f"텍스트 추가됨")
     except Exception as e:
         st.error(f"오류: 슬라이드에 텍스트 추가 중 오류 발생: {e}")
@@ -216,7 +256,7 @@ def add_end_mark(slide):
     end_text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.MIDDLE
     p.alignment = PP_ALIGN.CENTER
 
-def add_check_needed_shape(slide, slide_number, ui_slide_number):
+def add_check_needed_shape(slide, ui_slide_number):
     """확인 필요한 슬라이드에 '확인 필요!' 상자를 추가합니다."""
 
     check_shape = slide.shapes.add_shape(
@@ -285,7 +325,7 @@ if st.button("PPT 생성"):
         try:
             slide_texts, split_flags, slide_numbers = split_text_into_slides_with_similarity(
                 text_paragraphs,
-                max_lines_per_slide=st.session_state.max_lines_slider,
+                max_lines_per_slide=st.session_session_state.max_lines_slider,
                 max_chars_per_line_ppt=st.session_state.max_chars_slider_ppt,
                 similarity_threshold=st.session_state.similarity_threshold_input
             )
@@ -294,6 +334,7 @@ if st.button("PPT 생성"):
                 max_chars_per_line_in_ppt=st.session_state.max_chars_slider_ppt,
                 font_size=st.session_state.font_size_slider
             )
+            ui_slide_numbers = list(range(1, len(slide_texts) + 1))  # UI용 슬라이드 번호 목록 생성
         except Exception as e:
             st.error(f"오류: PPT 생성 실패: {e}")
             st.error(f"오류 상세 내용: {str(e)}")
@@ -314,3 +355,11 @@ if st.button("PPT 생성"):
                 file_name="paydo_script_ai.pptx",
                 mime="application/vnd.openxmlformats-officedocument.presentationml.presentation"
             )
+
+        # UI에 슬라이드 번호와 내용 표시 (다운로드 버튼 아래에)
+        st.subheader("생성된 슬라이드")
+        for i, text in enumerate(slide_texts):
+            st.write(f"**슬라이드 {i + 1}:**")
+            st.write(text)
+            if split_flags[i]:
+                st.warning("이 슬라이드는 내용이 길어 분할되었습니다. 확인이 필요합니다.")
