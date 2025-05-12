@@ -178,9 +178,9 @@ def create_ppt(slide_texts, split_flags, slide_numbers, max_chars_per_line_in_pp
 
     for i, text in enumerate(slide_texts):
         try:
-            logging.debug(f"Adding text to slide {i+1}: {text[:50]}...")  # Log 추가되는 텍스트
-            slide = prs.slides.add_slide(prs.slide_layouts[6])  # 제목 슬라이드 레이아웃 사용
-            add_text_to_slide(slide, text, font_size, PP_ALIGN.CENTER)
+            logging.debug(f"Adding text to slide {i+1}: {text[:50]}...")
+            slide = prs.slides.add_slide(prs.slide_layouts[6])
+            add_text_to_slide(slide, text, font_size, PP_ALIGN.CENTER, max_chars_per_line_in_ppt)  # max_chars_per_line_in_ppt 전달
             add_slide_number(slide, slide_numbers[i], total_slides)
             if split_flags[i] and calculate_text_lines(text, max_chars_per_line_in_ppt) == 1:
                 add_check_needed_shape(slide, slide_numbers[i], slide_numbers[i])
@@ -192,93 +192,32 @@ def create_ppt(slide_texts, split_flags, slide_numbers, max_chars_per_line_in_pp
 
     return prs
 
-def add_text_to_slide(slide, text, font_size, alignment):
+def add_text_to_slide(slide, text, font_size, alignment, max_chars_per_line):  # max_chars_per_line 추가
     """슬라이드에 텍스트를 추가하고, 폰트, 크기, 정렬 등을 설정합니다."""
 
     try:
         textbox = slide.shapes.add_textbox(Inches(0.5), Inches(0.3), Inches(12.33), Inches(6.2))
         text_frame = textbox.text_frame
-        text_frame.clear()  # 기존 텍스트 제거
+        text_frame.clear()
         text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.TOP
         text_frame.word_wrap = True
 
-        wrapped_lines = textwrap.wrap(text, width=max_chars_per_line_in_ppt, break_long_words=True)  # 텍스트를 지정된 너비로 줄바꿈
+        wrapped_lines = textwrap.wrap(text, width=max_chars_per_line, break_long_words=True)
         for line in wrapped_lines:
             p = text_frame.add_paragraph()
             p.text = line
             p.font.size = Pt(font_size)
-            p.font.name = 'Noto Color Emoji'  # 폰트 설정
+            p.font.name = 'Noto Color Emoji'
             p.font.bold = True
-            p.font.color.rgb = RGBColor(0, 0, 0)  # 텍스트 색상 설정 (검정)
-            p.alignment = alignment  # 정렬 방식 설정
+            p.font.color.rgb = RGBColor(0, 0, 0)
+            p.alignment = alignment
             p.vertical_anchor = MSO_VERTICAL_ANCHOR.TOP
 
         text_frame.auto_size = None
-        logging.debug(f"Text added to slide: {text}")  # Log 슬라이드에 추가된 텍스트
+        logging.debug(f"Text added to slide: {text}")
     except Exception as e:
         st.error(f"슬라이드에 텍스트를 추가하는 중 오류가 발생했습니다: {e}")
         raise
-
-def add_slide_number(slide, current, total):
-    """슬라이드에 슬라이드 번호를 추가합니다."""
-
-    footer_box = slide.shapes.add_textbox(Inches(11.5), Inches(7.0), Inches(1.5), Inches(0.4))
-    footer_text_frame = footer_box.text_frame
-    footer_text_frame.clear()
-    p = footer_text_frame.paragraphs[0]
-    p.text = f"{current} / {total}"
-    p.font.size = Pt(18)
-    p.font.name = '맑은 고딕'
-    p.font.color.rgb = RGBColor(128, 128, 128)  # 회색
-    p.alignment = PP_ALIGN.RIGHT
-
-def add_end_mark(slide):
-    """마지막 슬라이드에 '끝' 표시를 추가합니다."""
-
-    end_shape = slide.shapes.add_shape(
-        MSO_SHAPE.RECTANGLE,
-        Inches(10),
-        Inches(6),
-        Inches(2),
-        Inches(1)
-    )
-    end_shape.fill.solid()
-    end_shape.fill.fore_color.rgb = RGBColor(255, 0, 0)  # 빨간색 배경
-    end_shape.line.color.rgb = RGBColor(0, 0, 0)  # 검은색 테두리
-
-    end_text_frame = end_shape.text_frame
-    end_text_frame.clear()
-    p = end_text_frame.paragraphs[0]
-    p.text = "끝"
-    p.font.size = Pt(36)
-    p.font.color.rgb = RGBColor(255, 255, 255)  # 흰색 텍스트
-    end_text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.MIDDLE
-    p.alignment = PP_ALIGN.CENTER
-
-def add_check_needed_shape(slide, slide_number, ui_slide_number):
-    """확인 필요한 슬라이드에 '확인 필요!' 상자를 추가합니다."""
-
-    check_shape = slide.shapes.add_shape(
-        MSO_SHAPE.RECTANGLE,
-        Inches(0.5),
-        Inches(0.3),
-        Inches(2.5),
-        Inches(0.5)
-    )
-    check_shape.fill.solid()
-    check_shape.fill.fore_color.rgb = RGBColor(255, 255, 0)  # 노란색 배경
-    check_shape.line.color.rgb = RGBColor(0, 0, 0)  # 검은색 테두리
-
-    check_text_frame = check_shape.text_frame
-    check_text_frame.clear()
-    p = check_text_frame.paragraphs[0]
-    p.text = f"확인 필요! (슬라이드 {ui_slide_number})"
-    p.font.size = Pt(18)
-    p.font.bold = True
-    p.font.color.rgb = RGBColor(0, 0, 0)  # 검은색 텍스트
-    text_frame = check_shape.text_frame
-    text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.MIDDLE
-    p.alignment = PP_ALIGN.CENTER
 
 # 6. Streamlit UI
 st.set_page_config(page_title="Paydo AI PPT", layout="centered")
