@@ -68,14 +68,17 @@ def smart_sentence_split(text):
     sentences = []
     for paragraph in paragraphs:
         # 2. 마침표, 물음표, 느낌표 뒤에서 분리 (단, 약어는 제외)
-        temp_sentences = re.split(r'(?<!\b\w)\.|\?|!(?!\w)', paragraph)
-        for temp_sentence in temp_sentences:
-            temp_sentence = temp_sentence.strip()
-            if temp_sentence:
-                # 3. 접속사, 열거형 표현, 인용문 등을 고려하여 추가 분리 (필요한 경우)
-                sub_sentences = smart_sub_split(temp_sentence)
-                sentences.extend(sub_sentences)
-    return sentences
+        #    더 정확한 분리를 위해 긍정형 전방탐색 사용
+        temp_sentences = re.split(r'(?<!\b\w)([.?!])(?=\s|$)', paragraph)
+        temp = []
+        for i in range(0, len(temp_sentences), 2):
+            if i + 1 < len(temp_sentences):
+                temp.append(temp_sentences[i] + temp_sentences[i + 1])
+            else:
+                temp.append(temp_sentences[i])
+        sentences.extend(temp)
+
+    return [s.strip() for s in sentences if s.strip()]
 
 def smart_sub_split(sentence):
     """
@@ -91,7 +94,7 @@ def split_and_group_text_with_embeddings(
     max_lines_per_slide,
     max_chars_per_line_ppt,
     similarity_threshold=0.85,  # 더 높은 기본값
-    max_slide_length=300       # 최대 슬라이드 길이 제한 (예: 300자)
+    max_slide_length=100       # 최대 슬라이드 길이 제한 (10~100 범위)
 ):
     """
     문장 임베딩을 사용하여 문맥을 고려하며 텍스트를 슬라이드로 분할 및 그룹화합니다.
@@ -102,19 +105,21 @@ def split_and_group_text_with_embeddings(
         max_chars_per_line_ppt (int): PPT 한 줄당 최대 문자 수.
         similarity_threshold (float, optional): 문장 간 유사도 임계값 (기본값: 0.85).
                                              이 값보다 낮으면 슬라이드를 나누는 것을 고려합니다.
-        max_slide_length (int, optional): 슬라이드당 최대 글자 수 (기본값: 300).
+        max_slide_length (int, optional): 슬라이드당 최대 글자 수 (10~100 범위).
 
     Returns:
-        tuple: (분할된 텍스트 슬라이드 리스트, 각 슬라이드가 강제로 분할되었는지 여부를 나타내는 불리언 리스트)
+        tuple: (분할된 텍스트 슬라이드 리스트, 각 슬라이드가 강제로 분할되었는지 여부를 나타내는 불리언 리스트, 슬라이드 번호 리스트)
     """
 
     slides = []
     split_flags = []
+    slide_numbers = []  # 슬라이드 번호 추가
     sentences, embeddings = get_sentence_embeddings(text)
     current_slide_text = ""
     current_slide_lines = 0
     current_slide_length = 0
     is_forced_split = False
+    slide_number = 1  # 슬라이드 번호 초기화
 
     for i, sentence in enumerate(sentences):
         sentence = sentence.strip()
@@ -124,6 +129,7 @@ def split_and_group_text_with_embeddings(
         if not slides:
             slides.append(sentence)
             split_flags.append(is_forced_split)
+            slide_numbers.append(slide_number)  # 첫 슬라이드 번호 추가
             current_slide_text = sentence
             current_slide_lines = sentence_lines
             current_slide_length = sentence_length
@@ -137,6 +143,7 @@ def split_and_group_text_with_embeddings(
                 if similarity < similarity_threshold:
                     slides.append(sentence)
                     split_flags.append(True)
+                    slide_numbers.append(++slide_number)  # 새 슬라이드 번호 추가 및 증가
                     current_slide_text = sentence
                     current_slide_lines = sentence_lines
                     current_slide_length = sentence_length
@@ -144,31 +151,45 @@ def split_and_group_text_with_embeddings(
                 else:
                     slides[-1] += " " + sentence  # 문장 사이에 공백 추가
                     split_flags[-1] = is_forced_split
+                    slide_numbers[-1] = slide_number
                     current_slide_text += " " + sentence
                     current_slide_lines += sentence_lines
                     current_slide_length += sentence_length
             else:
-                slides[-1] += " " + sentence
-                split_flags[-1] = is_forced_split
-                current_slide_text += " " + sentence
-                current_slide_lines += sentence_lines
-                current_slide_length += sentence_length
-        else:
-            slides.append(sentence)
-            split_flags.append(True)
-            current_slide_text = sentence
-            current_slide_lines = sentence_lines
-            current_slide_length = sentence_length
-            is_forced_split = True  # 길이 제한으로 강제 분할
+                # 최대 길이 초과 시, 문맥에 따라 분리 가능한 지점 찾기 (간단한 예시)
+                split_point = -1
+                if ", " in current_slide_text:
+                    split_point = current_slide_text.rfind(", ")  # 마지막 쉼표
+                elif ". " in current_slide_text:
+                    split_point = current_slide_text.rfind(". ")  # 마지막 마침표
+
+                if split_point != -1:
+                    slides.append(current_slide_text[:split_point])
+                    slides.append(current_slide_text[split_point + 2:] + " " + sentence)  # 분리된 문장과 현재 문장 합치기
+                    split_flags.extend([True, True])
+                    slide_numbers.extend([slide_number, ++slide_number])  # 새 슬라이드 번호 추가 및 증가
+                    current_slide_lines = calculate_text_lines(sentence, max_chars_per_line_ppt)
+                    current_slide_length = sentence_length
+                    is_forced_split = True
+                else:
+                    slides.append(sentence)
+                    split_flags.append(True)
+                    slide_numbers.append(++slide_number)  # 새 슬라이드 번호 추가 및 증가
+                    current_slide_text = sentence
+                    current_slide_lines = sentence_lines
+                    current_slide_length = sentence_length
+                    is_forced_split = True  # 길이 제한으로 강제 분할
+        # st.write(f"Slide {slide_number}: {slides[-1]}")  # 디버깅: 슬라이드 내용 확인
 
     # 최종 슬라이드 정리 (빈 슬라이드 제거 등)
     final_slides_result = [slide for slide in slides if slide.strip()]
     final_split_flags_result = split_flags[:len(final_slides_result)]
+    final_slide_numbers_result = slide_numbers[:len(final_slides_result)]
 
-    return final_slides_result, final_split_flags_result
+    return final_slides_result, final_split_flags_result, final_slide_numbers_result
 
 # PPT 생성 함수 (오류 처리 추가)
-def create_ppt(slide_texts, split_flags, max_chars_per_line_in_ppt=18, font_size=54):
+def create_ppt(slide_texts, split_flags, slide_numbers, max_chars_per_line_in_ppt=18, font_size=54):
     prs = Presentation()
     prs.slide_width = Inches(13.33)
     prs.slide_height = Inches(7.5)
@@ -179,7 +200,7 @@ def create_ppt(slide_texts, split_flags, max_chars_per_line_in_ppt=18, font_size
             print(f"Adding text to slide {i+1}: {text[:50]}...")  # 디버깅용 출력
             slide = prs.slides.add_slide(prs.slide_layouts[6])
             add_text_to_slide(slide, text, font_size, PP_ALIGN.CENTER)
-            add_slide_number(slide, i + 1, total_slides)
+            add_slide_number(slide, slide_numbers[i], total_slides)  # 슬라이드 번호 전달
             if split_flags[i]:
                 add_check_needed_shape(slide)
             if i == total_slides - 1:
@@ -296,54 +317,11 @@ similarity_threshold_input = st.slider(
     value=0.85,  # 더 높은 기본값
     step=0.05,
     help="""
-    이 값을 조절하여 슬라이드 분할 시 문맥을 얼마나 중요하게 고려할지 결정합니다.
-    - 1.0에 가까울수록 문맥을 최대한 유지하며 슬라이드를 분할합니다 (강의용에 적합).
-    - 0.0에 가까울수록 문맥보다 슬라이드 길이를 우선하여 분할합니다.
+    이 값보다 낮은 문맥 유사도를 가지는 문장 사이에서 슬라이드를 나누는 것을 고려합니다.\
+    1.0에 가까울수록 문맥을 최대한 유지하며 슬라이드를 분할합니다 (강의용에 적합).\
+    0.0에 가까울수록 문맥보다 슬라이드 길이를 우선하여 분할합니다.
     """
 )
 
 max_slide_length_input = st.slider(
-    "📝 슬라이드당 최대 글자 수:",  # 새로운 옵션
-    min_value=100,
-    max_value=500,
-    value=300,  # 적절한 기본값
-    step=50,
-    help="한 슬라이드에 포함될 최대 글자 수를 설정합니다. 강사가 한 슬라이드를 너무 오래 읽지 않도록 돕습니다."
-)
-
-if st.button("🚀 AI 기반 PPT 만들기", key="create_ppt_button"):
-    text = ""
-    if uploaded_file is not None:
-        text = extract_text_from_word(uploaded_file)
-    elif text_input.strip():
-        text = text_input
-    else:
-        st.warning("Word 파일을 업로드하거나 텍스트를 입력하세요.")
-        st.stop()
-
-    slide_texts, split_flags = split_and_group_text_with_embeddings(
-        text,
-        max_lines_per_slide=max_lines_per_slide_input,
-        max_chars_per_line_ppt=max_chars_per_line_ppt_input,
-        similarity_threshold=similarity_threshold_input,
-        max_slide_length=max_slide_length_input,  # 새로운 옵션 전달
-    )
-    ppt = create_ppt(
-        slide_texts,
-        split_flags,
-        max_chars_per_line_in_ppt=max_chars_per_line_ppt_input,
-        font_size=font_size_input,
-    )
-
-    if ppt:
-        ppt_io = io.BytesIO()
-        ppt.save(ppt_io)
-        ppt_io.seek(0)
-
-        st.download_button(
-            label="📥 PPT 다운로드",
-            data=ppt_io,
-            file_name="paydo_script_ai.pptx",
-            mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
-            key="ppt_download_button"
-        )
+    "📝 슬라이드당 최대 글자 수:",  # 새로운
