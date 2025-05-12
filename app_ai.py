@@ -296,15 +296,15 @@ if st.button("🚀 AI 기반 PPT 만들기", key="create_ppt_button"):
 
     with st.spinner("PPT 생성 중..."):
         slide_texts, split_flags, slide_numbers = split_and_group_text_with_embeddings(
-            text, max_lines_per_slide=max_lines_per_slide_input,
-            max_chars_per_line_ppt=max_chars_per_line_ppt_input,
-            similarity_threshold=similarity_threshold_input,
-            max_slide_length=max_chars_per_line_ppt_input
+            text, max_lines_per_slide=st.session_state.max_lines_slider,
+            max_chars_per_line_ppt=st.session_state.max_chars_slider_ppt,
+            similarity_threshold=st.session_state.similarity_threshold_input,
+            max_slide_length=st.session_state.max_chars_slider_ppt
         )
         ppt = create_ppt(
             slide_texts, split_flags, slide_numbers,
-            max_chars_per_line_in_ppt=max_chars_per_line_ppt,
-            font_size=font_size_input
+            max_chars_per_line_in_ppt=st.session_state.max_chars_slider_ppt,
+            font_size=st.session_state.font_size_slider
         )
 
     if ppt:
