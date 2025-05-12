@@ -259,46 +259,24 @@ def add_check_needed_shape(slide, slide_number, ui_slide_number):
 st.set_page_config(page_title="Paydo AI PPT", layout="centered")
 st.title("🎬 AI 기반 촬영 대본 PPT 자동 생성기")
 
-# Word 파일 업로드 기능 추가
-uploaded_file = st.file_uploader("📝 Word 파일 업로드", type=["docx"])
-
-text_input = st.text_area("또는 텍스트 직접 입력:", height=300, key="text_input_area")
-
-# UI 입력 슬라이더
-max_lines_per_slide_input = st.slider(
-    "📄 슬라이드당 최대 줄 수:", min_value=1, max_value=10, value=5, key="max_lines_slider"
-)
-max_chars_per_line_ppt_input = st.slider(
-    "📏 한 줄당 최대 글자 수 (PPT 표시):", min_value=10, max_value=100, value=18, key="max_chars_slider_ppt"
-)
-font_size_input = st.slider("🅰️ 폰트 크기:", min_value=10, max_value=60, value=54, key="font_size_slider")
+# ... (다른 UI 요소들)
 
 similarity_threshold_input = st.slider(
     "📚 문맥 유지 민감도:",
     min_value=0.0, max_value=1.0, value=0.85, step=0.05,
-    help="""
-    이 값보다 낮은 문맥 유사도를 가지는 문장 사이에서 슬라이드를 나누는 것을 고려합니다.
-    1.0에 가까울수록 문맥을 최대한 유지하며 슬라이드를 분할합니다 (강의용에 적합).
-    0.0에 가까울수록 슬라이드를 더 짧게 나누어 가독성을 높입니다 (발표용에 적합).
-    """
+    help="...",
+    key="similarity_threshold_input"  # key 값을 "similarity_threshold_input"으로 가정
 )
 
 # 7. PPT 생성 및 다운로드
 if st.button("🚀 AI 기반 PPT 만들기", key="create_ppt_button"):
-    text = ""
-    if uploaded_file is not None:
-        text = extract_text_from_word(uploaded_file)
-    elif text_input.strip():
-        text = text_input
-    else:
-        st.warning("Word 파일을 업로드하거나 텍스트를 입력하세요.")
-        st.stop()
+    # ... (텍스트 추출 코드)
 
     with st.spinner("PPT 생성 중..."):
         slide_texts, split_flags, slide_numbers = split_and_group_text_with_embeddings(
             text, max_lines_per_slide=st.session_state.max_lines_slider,
             max_chars_per_line_ppt=st.session_state.max_chars_slider_ppt,
-            similarity_threshold=st.session_state.similarity_threshold_input,
+            similarity_threshold=st.session_state.similarity_threshold_input,  # key 값을 일치시킴
             max_slide_length=st.session_state.max_chars_slider_ppt
         )
         ppt = create_ppt(
@@ -306,7 +284,6 @@ if st.button("🚀 AI 기반 PPT 만들기", key="create_ppt_button"):
             max_chars_per_line_in_ppt=st.session_state.max_chars_slider_ppt,
             font_size=st.session_state.font_size_slider
         )
-
     if ppt:
         ppt_io = io.BytesIO()
         ppt.save(ppt_io)
