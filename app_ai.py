@@ -289,7 +289,7 @@ font_size_input = st.slider("🅰️ 폰트 크기:", min_value=10, max_value=60
 
 similarity_threshold_input = st.slider(
     "📚 문맥 유지 민감도:",
-    min_value=0.0, max_value=1.0, value.05,
+    min_value=0.0, max_value=1.0, value=0.85, step=0.05, # value 값을 0.85로 수정
     help="""
     이 값보다 낮은 문맥 유사도를 가지는 문장 사이에서 슬라이드를 나누는 것을 고려합니다.
     1.0에 가까울수록 문맥을 최대한 유지하며 슬라이드를 분할합니다 (강의용에 적합).
