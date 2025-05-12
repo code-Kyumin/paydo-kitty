@@ -11,14 +11,12 @@ import docx  # python-docx 라이브러리 추가
 
 # Word 파일에서 텍스트 추출하는 함수
 def extract_text_from_word(file_path):
-    """Word 파일에서 모든 텍스트를 추출하여 하나의 문자열로 반환합니다."""
     doc = docx.Document(file_path)
     full_text = []
     for paragraph in doc.paragraphs:
         full_text.append(paragraph.text)
     return "\n".join(full_text)
 
-# 문장이 차지할 줄 수 계산
 def calculate_text_lines(text, max_chars_per_line):
     lines = 0
     paragraphs = text.split('\n')
@@ -29,7 +27,6 @@ def calculate_text_lines(text, max_chars_per_line):
             lines += len(textwrap.wrap(paragraph, width=max_chars_per_line, break_long_words=True))
     return lines
 
-# 텍스트를 슬라이드로 분할 및 그룹화
 def split_and_group_text(text, max_lines_per_slide, max_chars_per_line_ppt):
     slides = []
     split_flags = []
@@ -114,7 +111,6 @@ def split_and_group_text(text, max_lines_per_slide, max_chars_per_line_ppt):
 
     return final_slides, final_split_flags
 
-# PPT 생성 함수
 def create_ppt(slide_texts, split_flags, max_chars_per_line_in_ppt=18, font_size=54):
     prs = Presentation()
     prs.slide_width = Inches(13.33)
@@ -125,7 +121,7 @@ def create_ppt(slide_texts, split_flags, max_chars_per_line_in_ppt=18, font_size
         slide = prs.slides.add_slide(prs.slide_layouts[6])
         add_text_to_slide(slide, text, font_size, PP_ALIGN.CENTER)
         add_slide_number(slide, i + 1, total_slides)
-        if split_flags[i]:
+        if split_flags[i]: # <- 여기를 split_flags로 유지 (create_ppt 호출 시 final_split_flags 전달)
             add_check_needed_shape(slide)
         if i == total_slides - 1:
             add_end_mark(slide)
@@ -136,10 +132,10 @@ def add_text_to_slide(slide, text, font_size, alignment):
     textbox = slide.shapes.add_textbox(Inches(0.5), Inches(0.3), Inches(12.33), Inches(6.2))
     text_frame = textbox.text_frame
     text_frame.clear()
-    text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.TOP  # 상단 정렬 명시적으로 설정
+    text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.TOP
     text_frame.word_wrap = True
 
-    wrapped_lines = textwrap.wrap(text, width=18, break_long_words=True)  # 긴 단어 분리 활성화
+    wrapped_lines = textwrap.wrap(text, width=18, break_long_words=True)
     text_frame.clear()
     for line in wrapped_lines:
         p = text_frame.add_paragraph()
@@ -151,10 +147,8 @@ def add_text_to_slide(slide, text, font_size, alignment):
         p.alignment = alignment
         p.vertical_anchor = MSO_VERTICAL_ANCHOR.TOP
 
-    # 텍스트 박스의 자동 맞춤 기능 제거 (상단 정렬에 영향 줄 수 있음)
     text_frame.auto_size = None
     text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.TOP
-
 
 def add_slide_number(slide, current, total):
     footer_box = slide.shapes.add_textbox(Inches(11.5), Inches(7.0), Inches(1.5), Inches(0.4))
@@ -215,19 +209,15 @@ def add_check_needed_shape(slide):
 st.set_page_config(page_title="Paydo", layout="centered")
 st.title("🎬 Paydo 촬영 대본 PPT 자동 생성기")
 
-# Word 파일 업로드 기능 추가
 uploaded_file = st.file_uploader("📝 Word 파일 업로드", type=["docx"])
-
 text_input = st.text_area("또는 텍스트 직접 입력:", height=300, key="text_input_area")
-
-# UI에서 사용자로부터 직접 값을 입력받도록 슬라이더 추가
 max_lines_per_slide_input = st.slider("📄 슬라이드당 최대 줄 수:", min_value=1, max_value=10, value=5, key="max_lines_slider")
 max_chars_per_line_ppt_input = st.slider("📏 한 줄당 최대 글자 수 (PPT 표시):", min_value=3, max_value=30, value=18, key="max_chars_slider_ppt")
 font_size_input = st.slider("🅰️ 폰트 크기:", min_value=10, max_value=60, value=54, key="font_size_slider")
 
 if st.button("🚀 PPT 만들기", key="create_ppt_button"):
     text = ""
-    if uploaded_file is not None:
+    if uploaded_file:
         text = extract_text_from_word(uploaded_file)
     elif text_input.strip():
         text = text_input
@@ -240,10 +230,14 @@ if st.button("🚀 PPT 만들기", key="create_ppt_button"):
         max_lines_per_slide=max_lines_per_slide_input,
         max_chars_per_line_ppt=max_chars_per_line_ppt_input
     )
-    st.session_state.final_split_flags = final_split_flags # 세션 상태에 저장
+    st.session_state.final_split_flags = final_split_flags
+
+    # 강제 분할 정보 확인 (디버깅용)
+    st.write("final_split_flags:", st.session_state.final_split_flags)
+
     ppt = create_ppt(
         slide_texts,
-        final_split_flags, # <- 여기를 final_split_flags로 유지
+        st.session_state.final_split_flags, # <- 여기서 세션 상태의 final_split_flags를 전달
         max_chars_per_line_in_ppt=max_chars_per_line_ppt_input,
         font_size=font_size_input
     )
