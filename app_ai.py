@@ -45,42 +45,11 @@ def calculate_text_lines(text, max_chars_per_line):
             lines += len(textwrap.wrap(paragraph, width=max_chars_per_line, break_long_words=True))
     return lines
 
-# def get_sentence_embeddings(text, model_name='paraphrase-multilingual-mpnet-base-v2'):
-#     """텍스트에서 문장 임베딩을 추출합니다."""
-#     model = SentenceTransformer(model_name)
-#     sentences = smart_sentence_split(text)
-#     embeddings = model.encode(sentences)
-#     return sentences, embeddings
-
-# def smart_sentence_split(text):
-#     """문맥을 고려하여 자연스럽게 문장을 분할합니다."""
-#     # 더 이상 사용하지 않음
-#     paragraphs = text.split('\n')
-#     sentences = []
-#     for paragraph in paragraphs:
-#         temp_sentences = re.split(r'(?<!\b\w)([.?!])(?=\s|$)', paragraph)
-#         temp = []
-#         for i in range(0, len(temp_sentences), 2):
-#             if i + 1 < len(temp_sentences):
-#                 temp.append(temp_sentences[i] + temp_sentences[i + 1])
-#             else:
-#                 temp.append(temp_sentences[i])
-#         sentences.extend(temp)
-#     sentences = [s.strip() for s in sentences if s.strip()]
-#     logging.debug(f"Sentences split: {len(sentences)} sentences")
-#     return sentences
-
-# def smart_sub_split(sentence):
-#     """더 복잡한 문장 구조를 고려하여 하위 문장으로 분리합니다."""
-#     # 더 이상 사용하지 않음
-#     sub_sentences = re.split(r',\s*(그리고|그러나|왜냐하면|예를 들어|즉|또는)\s+', sentence)
-#     return sub_sentences
-
 # 4. 함수 정의 (슬라이드 분할)
 def split_text_into_slides(
     text_paragraphs, max_lines_per_slide, max_chars_per_line_ppt
 ):
-    """단락 리스트를 기반으로 슬라이드를 분할합니다."""
+    """단락 리스트를 기반으로 슬라이드를 분할하고, 슬라이드 길이 제한을 적용합니다."""
 
     slides = []
     current_slide_text = ""
@@ -90,18 +59,44 @@ def split_text_into_slides(
     for paragraph in text_paragraphs:
         paragraph_lines = calculate_text_lines(paragraph, max_chars_per_line_ppt)
 
-        if current_slide_lines + paragraph_lines <= max_lines_per_slide:
-            current_slide_text += paragraph + "\n\n"  # 단락 간 여백 추가
-            current_slide_lines += paragraph_lines + 2  # 여백에 대한 줄 수 추가
+        # 현재 슬라이드에 추가해도 제한을 넘지 않는 경우
+        if current_slide_lines + paragraph_lines + 2 <= max_lines_per_slide:  # 여백 2줄 추가
+            current_slide_text += paragraph + "\n\n"
+            current_slide_lines += paragraph_lines + 2
         else:
-            slides.append(current_slide_text.strip())
-            logging.debug(f"Slide {slide_number}: {current_slide_text[:100]}...")  # Log 슬라이드 내용 (일부)
-            slide_number += 1
-            current_slide_text = paragraph + "\n\n"
-            current_slide_lines = paragraph_lines + 2
+            # 현재 슬라이드 텍스트가 비어있지 않다면 슬라이드 추가
+            if current_slide_text:
+                slides.append(current_slide_text.strip())
+                logging.debug(f"Slide {slide_number}: {current_slide_text[:100]}...")
+                slide_number += 1
 
-    slides.append(current_slide_text.strip())  # 마지막 슬라이드 추가
-    logging.debug(f"Slide {slide_number}: {current_slide_text[:100]}...")  # Log 마지막 슬라이드 내용 (일부)
+            # 현재 단락이 너무 길어서 단독으로 슬라이드를 채워야 하는 경우
+            if paragraph_lines + 2 > max_lines_per_slide:
+                wrapped_lines = textwrap.wrap(paragraph, width=max_chars_per_line_ppt, break_long_words=True)
+                temp_slide_text = ""
+                temp_slide_lines = 0
+                for line in wrapped_lines:
+                    line_lines = calculate_text_lines(line, max_chars_per_line_ppt)
+                    if temp_slide_lines + line_lines + 1 <= max_lines_per_slide:
+                        temp_slide_text += line + "\n"
+                        temp_slide_lines += line_lines + 1
+                    else:
+                        slides.append(temp_slide_text.strip())
+                        logging.debug(f"Slide {slide_number}: {temp_slide_text[:100]}...")
+                        slide_number += 1
+                        temp_slide_text = line + "\n"
+                        temp_slide_lines = line_lines + 1
+                slides.append(temp_slide_text.strip())
+                logging.debug(f"Slide {slide_number}: {temp_slide_text[:100]}...")
+                slide_number += 1
+            else:
+                # 새 슬라이드에 현재 단락 추가
+                current_slide_text = paragraph + "\n\n"
+                current_slide_lines = paragraph_lines + 2
+
+    if current_slide_text:  # 마지막 슬라이드 추가
+        slides.append(current_slide_text.strip())
+        logging.debug(f"Slide {slide_number}: {current_slide_text[:100]}...")
 
     return slides, [False] * len(slides), list(range(1, len(slides) + 1))  # split_flags, slide_numbers 추가
 
@@ -253,18 +248,16 @@ if st.button("PPT 생성"):
     text = ""
     if uploaded_file is not None:
         text_paragraphs = extract_text_from_word(uploaded_file)  # 단락 리스트로 받음
-        text = "\n\n".join(text_paragraphs) # text를 다시 만듦
     elif text_input.strip():
-        text = text_input
-        text_paragraphs = text.split("\n\n") # text_paragraphs 도 만듦
+        text_paragraphs = text_input.split("\n\n")  # 텍스트 입력을 단락으로 분할
     else:
         st.warning("Word 파일을 업로드하거나 텍스트를 입력하세요.")
         st.stop()
 
     with st.spinner("PPT 생성 중..."):
         try:
-            slide_texts, split_flags, slide_numbers = split_text_into_slides(  # 함수 이름 변경
-                text_paragraphs,  # text_paragraphs 사용
+            slide_texts, split_flags, slide_numbers = split_text_into_slides(
+                text_paragraphs,
                 max_lines_per_slide=st.session_state.max_lines_slider,
                 max_chars_per_line_ppt=st.session_state.max_chars_slider_ppt,
             )
@@ -285,7 +278,7 @@ if st.button("PPT 생성"):
             ppt_io.seek(0)
         except Exception as e:
             st.error(f"오류: PPT 저장 실패: {e}")
-            st.error(f"오류 상세 내용: {str(e)}")
+            st.error(f"오류 상세 내용:{str(e)}")
         else:
             st.download_button(
                 label="PPT 다운로드",
