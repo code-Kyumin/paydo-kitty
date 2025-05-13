@@ -305,6 +305,13 @@ if st.button("PPT 생성"):
 
     with st.spinner("PPT 생성 중..."):
         try:
+            # 추가: Hugging Face 로그인 안내
+            try:
+                from huggingface_hub import login
+                login()  # 로그인 시도 (이미 로그인되어 있다면 아무 동작 안 함)
+            except ImportError:
+                st.info("Hugging Face 계정이 있다면, 'huggingface-cli login' 명령어를 터미널에서 실행하여 로그인하고 다시 시도해 보세요.")
+
             slide_texts, split_flags, slide_numbers = split_text_into_slides_with_similarity(
                 text_paragraphs,
                 max_lines_per_slide=st.session_state.max_lines_slider,
