@@ -300,30 +300,92 @@ def add_check_needed_shape(slide):  # 슬라이드 번호 인자 제거
 st.set_page_config(page_title="Paydo AI PPT", layout="centered")
 st.title("🎬 AI PPT 생성기")
 
-# Word 파일 업로드
-uploaded_file = st.file_uploader("Word 파일 업로드", type=["docx"])
+# UI 레이아웃 분할
+input_col, result_col = st.columns([1, 2])  # 입력:결과 = 1:2 비율
 
-text_input = st.text_area("또는 텍스트 직접 입력", height=300, key="text_input_area")
+# 입력 옵션
+with input_col:
+    with st.expander("입력 옵션 (클릭하여 펼치기)", expanded=True):
+        uploaded_file = st.file_uploader("Word 파일 업로드", type=["docx"])
+        text_input = st.text_area("또는 텍스트 직접 입력", height=200, key="text_input_area")
+        max_lines_per_slide_input = st.slider(
+            "슬라이드당 최대 줄 수", min_value=1, max_value=10, value=5, key="max_lines_slider"
+        )
+        max_chars_per_line_ppt_input = st.slider(
+            "PPT 한 줄당 최대 글자 수", min_value=10, max_value=100, value=18, key="max_chars_slider_ppt"
+        )
+        font_size_input = st.slider("폰트 크기", min_value=10, max_value=60, value=54, key="font_size_slider")
+        similarity_threshold_input = st.slider(
+            "문맥 유사도 기준",
+            min_value=0.0, max_value=1.0, value=0.85, step=0.05,
+            help="""
+            문맥 유사도가 낮을 경우 슬라이드를 분리합니다.
+            값이 낮을수록 슬라이드가 짧아지고 가독성이 높아집니다 (발표용).
+            값이 높을수록 문맥이 유지되며 정보 밀도가 높아집니다 (강의용).
+            """,
+            key="similarity_threshold_input"
+        )
 
-# UI 입력 슬라이더
-max_lines_per_slide_input = st.slider(
-    "슬라이드당 최대 줄 수", min_value=1, max_value=10, value=5, key="max_lines_slider"
-)
-max_chars_per_line_ppt_input = st.slider(
-    "PPT 한 줄당 최대 글자 수", min_value=10, max_value=100, value=18, key="max_chars_slider_ppt"
-)
-font_size_input = st.slider("폰트 크기", min_value=10, max_value=60, value=54, key="font_size_slider")
+    if st.button("PPT 생성"):
+        text = ""
+        if uploaded_file is not None:
+            text_paragraphs = extract_text_from_word(uploaded_file)
+        elif text_input.strip():
+            text_paragraphs = text_input.split("\n\n")
+        else:
+            st.warning("Word 파일을 업로드하거나 텍스트를 입력하세요.")
+            st.stop()
 
-similarity_threshold_input = st.slider(
-    "문맥 유사도 기준",
-    min_value=0.0, max_value=1.0, value=0.85, step=0.05,
-    help="""
-    문맥 유사도가 낮을 경우 슬라이드를 분리합니다.
-    값이 낮을수록 슬라이드가 짧아지고 가독성이 높아집니다 (발표용).
-    값이 높을수록 문맥이 유지되며 정보 밀도가 높아집니다 (강의용).
-    """,
-    key="similarity_threshold_input" # 이 부분은 수정되지 않도록 해줘.
-)
+        with result_col:  # 결과 표시 영역
+            with st.spinner("PPT 생성 중..."):
+                try:
+                    slide_texts, split_flags, slide_numbers = split_text_into_slides_with_similarity(
+                        text_paragraphs,
+                        max_lines_per_slide=st.session_state.max_lines_slider,
+                        max_chars_per_line_ppt=st.session_state.max_chars_slider_ppt,
+                        similarity_threshold=st.session_state.similarity_threshold_input
+                    )
+                    ppt = create_ppt(
+                        slide_texts, split_flags,
+                        max_chars_per_line_in_ppt=st.session_state.max_chars_slider_ppt,
+                        font_size=st.session_state.font_size_slider
+                    )
+                    divided_slide_count = sum(split_flags)  # 분할된 슬라이드 수 계산
+                except Exception as e:
+                    st.error(f"오류: PPT 생성 실패: {e}")
+                    st.error(f"오류 상세 내용: {str(e)}")
+                    st.stop()
+
+            if ppt:
+                ppt_io = io.BytesIO()
+                try:
+                    ppt.save(ppt_io)
+                    ppt_io.seek(0)
+                except Exception as e:
+                    st.error(f"오류: PPT 저장 실패: {e}")
+                    st.error(f"오류 상세 내용: {str(e)}")
+                else:
+                    st.download_button(
+                        label="PPT 다운로드",
+                        data=ppt_io,
+                        file_name="paydo_script_ai.pptx",
+                        mime="application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                    )
+
+                # 결과 메시지
+                if divided_slide_count > 0:
+                    st.warning(
+                        f"총 {len(slide_texts)}개의 슬라이드 중 {divided_slide_count}개의 슬라이드가 나뉘어 졌습니다. 확인이 필요합니다."
+                    )
+                else:
+                    st.success("PPT가 성공적으로 생성되었습니다.")
+
+                # 슬라이드 목록 및 미리보기
+                st.subheader("생성된 슬라이드 목록")
+                for i in range(len(slide_texts)):
+                    split_info = " (나뉨)" if split_flags[i] else ""
+                    preview = slide_texts[i][:50] + "..." if len(slide_texts[i]) > 50 else slide_texts[i]  # 미리보기
+                    st.info(f"슬라이드 {i + 1}/{len(slide_texts)}{split_info} - {preview}")
 
 # 8. PPT 생성 및 다운로드
 if st.button("PPT 생성"):
@@ -336,50 +398,62 @@ if st.button("PPT 생성"):
         st.warning("Word 파일을 업로드하거나 텍스트를 입력하세요.")
         st.stop()
 
-    with st.spinner("PPT 생성 중..."):
-        try:
-            slide_texts, split_flags, slide_numbers = split_text_into_slides_with_similarity(
-                text_paragraphs,
-                max_lines_per_slide=st.session_state.max_lines_slider,
-                max_chars_per_line_ppt=st.session_state.max_chars_slider_ppt,
-                similarity_threshold=st.session_state.similarity_threshold_input
-            )
-            ppt = create_ppt(
-                slide_texts, split_flags,
-                max_chars_per_line_in_ppt=st.session_state.max_chars_slider_ppt,
-                font_size=st.session_state.font_size_slider
-            )
-            divided_slide_count = sum(split_flags)  # 분할된 슬라이드 수 계산
-        except Exception as e:
-            st.error(f"오류: PPT 생성 실패: {e}")
-            st.error(f"오류 상세 내용: {str(e)}")
-            st.stop()
+    with result_col:  # 결과 표시 영역
+        with st.spinner("PPT 생성 중..."):
+            try:
+                slide_texts, split_flags, slide_numbers = split_text_into_slides_with_similarity(
+                    text_paragraphs,
+                    max_lines_per_slide=st.session_state.max_lines_slider,
+                    max_chars_per_line_ppt=st.session_state.max_chars_slider_ppt,
+                    similarity_threshold=st.session_state.similarity_threshold_input
+                )
+                ppt = create_ppt(
+                    slide_texts, split_flags,
+                    max_chars_per_line_in_ppt=st.session_state.max_chars_slider_ppt,
+                    font_size=st.session_state.font_size_slider
+                )
+                divided_slide_count = sum(split_flags)  # 분할된 슬라이드 수 계산
+            except Exception as e:
+                st.error(f"오류: PPT 생성 실패: {e}")
+                st.error(f"오류 상세 내용: {str(e)}")
+                st.stop()
 
-    if ppt:
-        ppt_io = io.BytesIO()
-        try:
-            ppt.save(ppt_io)
-            ppt_io.seek(0)
-        except Exception as e:
-            st.error(f"오류: PPT 저장 실패: {e}")
-            st.error(f"오류 상세 내용: {str(e)}")
-        else:
-            st.download_button(
-                label="PPT 다운로드",
-                data=ppt_io,
-                file_name="paydo_script_ai.pptx",
-                mime="application/vnd.openxmlformats-officedocument.presentationml.presentation"
-            )
+        if ppt:
+            ppt_io = io.BytesIO()
+            try:
+                ppt.save(ppt_io)
+                ppt_io.seek(0)
+            except Exception as e:
+                st.error(f"오류: PPT 저장 실패: {e}")
+                st.error(f"오류 상세 내용: {str(e)}")
+            else:
+                st.download_button(
+                    label="PPT 다운로드",
+                    data=ppt_io,
+                    file_name="paydo_script_ai.pptx",
+                    mime="application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                )
 
-        # 분할된 슬라이드 수 알림
-        if divided_slide_count > 0:
-            st.warning(f"총 {len(slide_texts)}개의 슬라이드 중 {divided_slide_count}개의 슬라이드가 나뉘어 졌습니다. 확인이 필요합니다.")
-        else:
-            st.success("PPT가 성공적으로 생성되었습니다.")
+            # 결과 메시지
+            if divided_slide_count > 0:
+                st.warning(
+                    f"총 {len(slide_texts)}개의 슬라이드 중 <b>{divided_slide_count}개</b>의 슬라이드가 나뉘어 졌습니다. 확인이 필요합니다.",
+                    unsafe_allow_html=True
+                )
+            else:
+                st.success("PPT가 성공적으로 생성되었습니다.")
 
-        # UI에 슬라이드 번호만 표시 (확인용)
-        st.subheader("생성된 슬라이드 (확인용)")
-        for i in range(len(slide_texts)):
-            st.write(f"슬라이드 {i + 1}")
-            if split_flags[i]:
-                st.write("  ⚠️ **이 슬라이드는 나뉘어 졌으므로 확인이 필요합니다.**")
+            # 슬라이드 목록 및 미리보기 (향상된 표시)
+            st.subheader("생성된 슬라이드 목록")
+            for i in range(len(slide_texts)):
+                if split_flags[i]:
+                    st.error(
+                        f"슬라이드 {i + 1}/{len(slide_texts)} (나뉨): {slide_texts[i][:100]}...",
+                        icon="⚠️" ,
+                        
+                    )
+                else:
+                    st.info(
+                        f"슬라이드 {i + 1}/{len(slide_texts)}: {slide_texts[i][:100]}...",
+                        icon="ℹ️"
+                    )
