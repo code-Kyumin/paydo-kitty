@@ -16,7 +16,7 @@ import logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # 사용할 한국어 특화 모델
-model_name = 'snunlp/KR-SBERT-V40K-klue-nli-aug'
+model_name = 'jhgan/ko-sroberta-multitask'  # 모델 이름 변경
 
 # 2. 함수 정의 (Word 파일 처리)
 def extract_text_from_word(file_path):
@@ -74,7 +74,7 @@ def smart_sentence_split(text):
 
 # 4. 함수 정의 (슬라이드 분할)
 def split_text_into_slides_with_similarity(
-    text_paragraphs, max_lines_per_slide, max_chars_per_line_ppt, similarity_threshold=0.85, model_name='snunlp/KR-SBERT-V40K-klue-nli-aug'
+    text_paragraphs, max_lines_per_slide, max_chars_per_line_ppt, similarity_threshold=0.85, model_name='jhgan/ko-sroberta-multitask'
 ):
     """
     단락 및 문장 유사도를 기반으로 슬라이드를 분할합니다.
@@ -305,13 +305,6 @@ if st.button("PPT 생성"):
 
     with st.spinner("PPT 생성 중..."):
         try:
-            # 추가: Hugging Face 로그인 안내
-            try:
-                from huggingface_hub import login
-                login()  # 로그인 시도 (이미 로그인되어 있다면 아무 동작 안 함)
-            except ImportError:
-                st.info("Hugging Face 계정이 있다면, 'huggingface-cli login' 명령어를 터미널에서 실행하여 로그인하고 다시 시도해 보세요.")
-
             slide_texts, split_flags, slide_numbers = split_text_into_slides_with_similarity(
                 text_paragraphs,
                 max_lines_per_slide=st.session_state.max_lines_slider,
@@ -339,8 +332,7 @@ if st.button("PPT 생성"):
         except Exception as e:
             st.error(f"오류: PPT 저장 실패: {e}")
             st.error(f"오류 상세 내용: {str(e)}")
-        else:
-            st.download_button(
+        else:st.download_button(
                 label="PPT 다운로드",
                 data=ppt_io,
                 file_name="paydo_script_ai.pptx",
