@@ -300,7 +300,7 @@ similarity_threshold_input = st.slider(
    )
 
    # 8. PPT 생성 및 다운로드
-   if st.button("PPT 생성"):
+if st.button("PPT 생성"):
        text = ""
        if uploaded_file is not None:
            text_paragraphs = extract_text_from_word(uploaded_file)
