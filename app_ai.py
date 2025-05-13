@@ -337,63 +337,65 @@ with st.container():
                 text_paragraphs = text_input.split("\n\n")
             else:
                 st.warning("Word 파일을 업로드하거나 텍스트를 입력하세요.")
-                st.stopwith result_col:
-                with st.spinner("PPT 생성 중..."):
-                    try:
-                        slide_texts, split_flags, slide_numbers = split_text_into_slides_with_similarity(
-                            text_paragraphs,
-                            max_lines_per_slide=st.session_state.max_lines_slider,
-                            max_chars_per_line_ppt=st.session_state.max_chars_slider_ppt,
-                            similarity_threshold=st.session_state.similarity_threshold_input
-                        )
-                        ppt = create_ppt(
-                            slide_texts, split_flags,
-                            max_chars_per_line_in_ppt=st.session_state.max_chars_slider_ppt,
-                            font_size=st.session_state.font_size_slider
-                        )
-                        divided_slide_count = sum(split_flags)
-                    except Exception as e:
-                        st.error(f"오류: PPT 생성 실패: {e}")
-                        st.error(f"오류 상세 내용: {str(e)}")
-                        st.stop()
+                st.stop()
 
-                if ppt:
-                    ppt_io = io.BytesIO()
-                    try:
-                        ppt.save(ppt_io)
-                        ppt_io.seek(0)
-                    except Exception as e:
-                        st.error(f"오류: PPT 저장 실패: {e}")
-                        st.error(f"오류 상세 내용: {str(e)}")
-                    else:
-                        st.download_button(
-                            label="PPT 다운로드",
-                            data=ppt_io,
-                            file_name="paydo_script_ai.pptx",
-                            mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
-                            key="download_ppt_button"
-                        )
+    with result_col:  # 올바른 위치
+        with st.spinner("PPT 생성 중..."):
+            try:
+                slide_texts, split_flags, slide_numbers = split_text_into_slides_with_similarity(
+                    text_paragraphs,
+                    max_lines_per_slide=st.session_state.max_lines_slider,
+                    max_chars_per_line_ppt=st.session_state.max_chars_slider_ppt,
+                    similarity_threshold=st.session_state.similarity_threshold_input
+                )
+                ppt = create_ppt(
+                    slide_texts, split_flags,
+                    max_chars_per_line_in_ppt=st.session_state.max_chars_slider_ppt,
+                    font_size=st.session_state.font_size_slider
+                )
+                divided_slide_count = sum(split_flags)
+            except Exception as e:
+                st.error(f"오류: PPT 생성 실패: {e}")
+                st.error(f"오류 상세 내용: {str(e)}")
+                st.stop()
 
-                    if divided_slide_count > 0:
-                        st.warning(
-                            f"총 {len(slide_texts)}개의 슬라이드 중 <b>{divided_slide_count}개</b>의 슬라이드가 나뉘어 졌습니다. 확인이 필요합니다.",
-                            unsafe_allow_html=True
-                        )
-                    else:
-                        st.success("PPT가 성공적으로 생성되었습니다.")
+        if ppt:
+            ppt_io = io.BytesIO()
+            try:
+                ppt.save(ppt_io)
+                ppt_io.seek(0)
+            except Exception as e:
+                st.error(f"오류: PPT 저장 실패: {e}")
+                st.error(f"오류 상세 내용: {str(e)}")
+            else:
+                st.download_button(
+                    label="PPT 다운로드",
+                    data=ppt_io,
+                    file_name="paydo_script_ai.pptx",
+                    mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                    key="download_ppt_button"
+                )
 
-                    st.subheader("생성된 슬라이드 목록")
-                    for i in range(len(slide_texts)):
-                        if split_flags[i]:
-                            st.error(
-                                f"슬라이드 {i + 1}/{len(slide_texts)} (나뉨): {slide_texts[i][:100]}...",
-                                icon="⚠️",
-                                key=f"split_slide_{i}"
-                            )
-                        else:
-                            st.info(
-                                f"슬라이드 {i + 1}/{len(slide_texts)}: {slide_texts[i][:100]}...",
-                                icon="ℹ️",
-                                key=f"normal_slide_{i}"
-                            )
+            if divided_slide_count > 0:
+                st.warning(
+                    f"총 {len(slide_texts)}개의 슬라이드 중 <b>{divided_slide_count}개</b>의 슬라이드가 나뉘어 졌습니다. 확인이 필요합니다.",
+                    unsafe_allow_html=True
+                )
+            else:
+                st.success("PPT가 성공적으로 생성되었습니다.")
+
+            st.subheader("생성된 슬라이드 목록")
+            for i in range(len(slide_texts)):
+                if split_flags[i]:
+                    st.error(
+                        f"슬라이드 {i + 1}/{len(slide_texts)} (나뉨): {slide_texts[i][:100]}...",
+                        icon="⚠️",
+                        key=f"split_slide_{i}"
+                    )
+                else:
+                    st.info(
+                        f"슬라이드 {i + 1}/{len(slide_texts)}: {slide_texts[i][:100]}...",
+                        icon="ℹ️",
+                        key=f"normal_slide_{i}"
+                    )
     st.markdown("</div>", unsafe_allow_html=True)  # centered-container 닫기
