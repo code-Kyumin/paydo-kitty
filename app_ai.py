@@ -317,9 +317,9 @@ if st.button("PPT 생성", key="generate_ppt_button"):
         try:
             slide_texts, split_flags, slide_numbers = split_text_into_slides_with_similarity(
                 text_paragraphs,
-                max_lines_per_slide=st.session_state.max_lines_slider
+                max_lines_per_slide=st.session_state.max_lines_slider,
                 max_chars_per_line_ppt=st.session_state.max_chars_slider_ppt,
-                font_size=st.session_state.font_size_slider
+                similarity_threshold=st.session_state.similarity_threshold_input
             )
             divided_slide_count = sum(split_flags)  # 분할된 슬라이드 수 계산
         except Exception as e:
