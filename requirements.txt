@@ -1,5 +1,5 @@
-streamlit==1.45.1
+streamlit==1.20.0  # 특정 버전으로 고정
 python-pptx==1.0.2
 python-docx==1.1.2
-sentence-transformers==2.2.2
+sentence-transformers==2.1.0  # 특정 버전으로 고정
 huggingface-hub==0.16.4
