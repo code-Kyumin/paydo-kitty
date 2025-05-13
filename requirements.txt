@@ -1,5 +1,9 @@
-streamlit==1.20.0  # 특정 버전으로 고정 (낮은 버전 시도)
+streamlit==1.45.1
 python-pptx==1.0.2
 python-docx==1.1.2
-sentence-transformers==2.1.0  # 특정 버전으로 고정 (낮은 버전 시도)
-huggingface-hub==0.12.0      # sentence-transformers와 호환되는 버전으로 고정 (더 낮은 버전 시도)
+scikit-learn==1.6.1
+numpy==2.2.3
+gensim>=4.0.0
+transformers==4.35.2
+torch==2.7.0
+requests  # requests 라이브러리 추가
