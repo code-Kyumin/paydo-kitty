@@ -297,11 +297,11 @@ def add_check_needed_shape(slide):  # 슬라이드 번호 인자 제거
     p.alignment = PP_ALIGN.CENTER
 
 # 7. Streamlit UI
-st.set_page_config(page_title="Paydo AI PPT", layout="wide")  # 넓은 레이아웃 설정
+st.set_page_config(page_title="Paydo AI PPT", layout="wide")
 st.title("🎬 AI PPT 생성기")
 
 # UI 레이아웃 분할
-input_col, result_col = st.columns([1, 2])  # 입력:결과 = 1:2 비율
+input_col, result_col = st.columns([1, 2])
 
 # 입력 옵션
 with input_col:
@@ -326,7 +326,8 @@ with input_col:
             key="similarity_threshold_input"
         )
 
-    if st.button("PPT 생성"):
+    # 이 버튼만 남기고 다른 곳에 있는 버튼은 제거
+    if st.button("PPT 생성", key="generate_ppt_button"):
         text = ""
         if uploaded_file is not None:
             text_paragraphs = extract_text_from_word(uploaded_file)
@@ -336,7 +337,7 @@ with input_col:
             st.warning("Word 파일을 업로드하거나 텍스트를 입력하세요.")
             st.stop()
 
-        with result_col:  # 결과 표시 영역
+        with result_col:
             with st.spinner("PPT 생성 중..."):
                 try:
                     slide_texts, split_flags, slide_numbers = split_text_into_slides_with_similarity(
@@ -350,7 +351,7 @@ with input_col:
                         max_chars_per_line_in_ppt=st.session_state.max_chars_slider_ppt,
                         font_size=st.session_state.font_size_slider
                     )
-                    divided_slide_count = sum(split_flags)  # 분할된 슬라이드 수 계산
+                    divided_slide_count = sum(split_flags)
                 except Exception as e:
                     st.error(f"오류: PPT 생성 실패: {e}")
                     st.error(f"오류 상세 내용: {str(e)}")
@@ -369,23 +370,32 @@ with input_col:
                         label="PPT 다운로드",
                         data=ppt_io,
                         file_name="paydo_script_ai.pptx",
-                        mime="application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                        mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                        key="download_ppt_button"
                     )
 
-                # 결과 메시지
                 if divided_slide_count > 0:
                     st.warning(
-                        f"총 {len(slide_texts)}개의 슬라이드 중 {divided_slide_count}개의 슬라이드가 나뉘어 졌습니다. 확인이 필요합니다."
+                        f"총 {len(slide_texts)}개의 슬라이드 중 <b>{divided_slide_count}개</b>의 슬라이드가 나뉘어 졌습니다. 확인이 필요합니다.",
+                        unsafe_allow_html=True
                     )
                 else:
                     st.success("PPT가 성공적으로 생성되었습니다.")
 
-                # 슬라이드 목록 및 미리보기
                 st.subheader("생성된 슬라이드 목록")
                 for i in range(len(slide_texts)):
-                    split_info = " (나뉨)" if split_flags[i] else ""
-                    preview = slide_texts[i][:50] + "..." if len(slide_texts[i]) > 50 else slide_texts[i]  # 미리보기
-                    st.info(f"슬라이드 {i + 1}/{len(slide_texts)}{split_info} - {preview}")
+                    if split_flags[i]:
+                        st.error(
+                            f"슬라이드 {i + 1}/{len(slide_texts)} (나뉨): {slide_texts[i][:100]}...",
+                            icon="⚠️",
+                            key=f"split_slide_{i}"
+                        )
+                    else:
+                        st.info(
+                            f"슬라이드 {i + 1}/{len(slide_texts)}: {slide_texts[i][:100]}...",
+                            icon="ℹ️",
+                            key=f"normal_slide_{i}"
+                        )
 
 # 8. PPT 생성 및 다운로드
 if st.button("PPT 생성", key="generate_ppt_button"):
