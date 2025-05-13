@@ -5,3 +5,4 @@ transformers==4.51.3
 torch==2.2.2
 konlpy==0.6.0
 sentence-transformers==2.2.2
+huggingface-hub==0.21.4
