@@ -1,8 +1,4 @@
-streamlit==1.45.1
-python-pptx==1.0.2
-python-docx==1.1.2
-transformers==4.51.3
-torch==2.2.2
-konlpy==0.6.0
-sentence-transformers==2.2.2
-huggingface-hub>=0.30.0,<1.0
+streamlit
+python-pptx
+python-docx
+sentence-transformers
