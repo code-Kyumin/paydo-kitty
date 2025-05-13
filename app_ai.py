@@ -74,11 +74,15 @@ def smart_sentence_split(text):
 
 # 4. 함수 정의 (슬라이드 분할)
 def split_text_into_slides_with_similarity(
-    text_paragraphs, max_lines_per_slide, max_chars_per_line_ppt, similarity_threshold=0.85
+    text_paragraphs,
+    max_lines_per_slide,
+    max_chars_per_line_ppt,
+    similarity_threshold=0.85,
+    min_sentences_per_slide=2,  # 추가: 최소 문장 수 옵션
 ):
     """
     단락 및 문장 유사도를 기반으로 슬라이드를 분할합니다.
-    한 문장이 최대 줄 수를 초과하는 경우 슬라이드를 분리하고, 해당 슬라이드에 '확인 필요!' 표시를 합니다.
+    최소 문장 수 조건을 추가하고, 단락 경계를 우선적으로 고려합니다.
     """
 
     slides = []
@@ -87,7 +91,8 @@ def split_text_into_slides_with_similarity(
     slide_number = 1
     current_slide_text = ""
     current_slide_lines = 0
-    needs_check = False  # '확인 필요!' 표시 여부
+    current_slide_sentences = 0  # 현재 슬라이드의 문장 수
+    needs_check = False
 
     model = SentenceTransformer('jhgan/ko-sroberta-multitask')
 
@@ -123,13 +128,23 @@ def split_text_into_slides_with_similarity(
                 slide_number += 1
                 current_slide_text = ""
                 current_slide_lines = 0
+                current_slide_sentences = 0
                 needs_check = True
+            elif (
+                current_slide_lines + sentence_lines + 1 <= max_lines_per_slide
+                and current_slide_sentences < min_sentences_per_slide  # 최소 문장 수 조건
+            ):
+                # 현재 슬라이드에 추가 가능하고, 최소 문장 수 미만인 경우
+                current_slide_text += sentence + "\n"
+                current_slide_lines += sentence_lines + 1
+                current_slide_sentences += 1
             elif current_slide_lines + sentence_lines + 1 <= max_lines_per_slide:
-                # 현재 슬라이드에 추가 가능한 경우
-                # 첫 번째 문장이 아니면 이전 문장과의 유사도 검사
+                # 현재 슬라이드에 추가 가능하지만, 최소 문장 수 이상인 경우 유사도 검사
                 if current_slide_text and i > 0:
                     similarity = util.cos_sim(embeddings[i - 1], embeddings[i])[0][0].item()
-                    if similarity < similarity_threshold:
+                    if similarity < similarity_threshold or paragraph.endswith(
+                        sentence
+                    ):  # 단락 끝 우선
                         slides.append(current_slide_text.strip())
                         split_flags.append(needs_check)
                         slide_numbers.append(slide_number)
@@ -137,13 +152,16 @@ def split_text_into_slides_with_similarity(
                         slide_number += 1
                         current_slide_text = sentence + "\n"
                         current_slide_lines = sentence_lines + 1
+                        current_slide_sentences = 1
                         needs_check = False
                     else:
                         current_slide_text += sentence + "\n"
                         current_slide_lines += sentence_lines + 1
+                        current_slide_sentences += 1
                 else:
                     current_slide_text += sentence + "\n"
                     current_slide_lines += sentence_lines + 1
+                    current_slide_sentences += 1
             else:
                 # 현재 슬라이드에 추가 불가능한 경우
                 slides.append(current_slide_text.strip())
@@ -153,13 +171,14 @@ def split_text_into_slides_with_similarity(
                 slide_number += 1
                 current_slide_text = sentence + "\n"
                 current_slide_lines = sentence_lines + 1
+                current_slide_sentences = 1
                 needs_check = False
 
-    if current_slide_text:  # 마지막 슬라이드 추가
-        slides.append(current_slide_text.strip())
-        split_flags.append(needs_check)
-        slide_numbers.append(slide_number)
-        logging.debug(f"Slide {slide_number}: {current_slide_text[:100]}...")
+        if current_slide_text:  # 마지막 슬라이드 추가
+            slides.append(current_slide_text.strip())
+            split_flags.append(needs_check)
+            slide_numbers.append(slide_number)
+            logging.debug(f"Slide {slide_number}: {current_slide_text[:100]}...")
 
     return slides, split_flags, slide_numbers
 
@@ -292,6 +311,10 @@ similarity_threshold_input = st.slider(
     key="similarity_threshold_input" # 이 부분은 수정되지 않도록 해줘.
 )
 
+min_sentences_per_slide_input = st.slider(
+    "슬라이드당 최소 문장 수", min_value=1, max_value=5, value=2, key="min_sentences_slider"
+)
+
 # 8. PPT 생성 및 다운로드
 if st.button("PPT 생성"):
     text = ""
@@ -309,11 +332,12 @@ if st.button("PPT 생성"):
                 text_paragraphs,
                 max_lines_per_slide=st.session_state.max_lines_slider,
                 max_chars_per_line_ppt=st.session_state.max_chars_slider_ppt,
-                similarity_threshold=st.session_state.similarity_threshold_input
+                similarity_threshold=st.session_state.similarity_threshold_input,
+                min_sentences_per_slide=st.session_state.min_sentences_slider,  # 옵션 전달
             )
             ppt = create_ppt(
                 slide_texts, split_flags,
-                max_chars_per_line_in_ppt=st.session_state.max_chars_slider_ppt,
+                max_chars_per_line_in_ppt=st.session_state.max_chars_per_line_in_ppt,
                 font_size=st.session_state.font_size_slider
             )
             divided_slide_count = sum(split_flags)  # 분할된 슬라이드 수 계산
@@ -338,8 +362,13 @@ if st.button("PPT 생성"):
                 mime="application/vnd.openxmlformats-officedocument.presentationml.presentation"
             )
 
-        # 분할된 슬라이드 수 알림
-        if divided_slide_count > 0:st.success("PPT가 성공적으로 생성되었습니다.")
+        # 분할된 슬라이드 정보 표시 (슬라이드 수, 번호)
+        st.subheader("생성 결과")
+        st.write(f"총 {len(slide_texts)}개의 슬라이드가 생성되었습니다.")
+        if divided_slide_count > 0:
+            st.warning(f"총 {len(slide_texts)}개의 슬라이드 중 {divided_slide_count}개의 슬라이드가 나뉘어 졌습니다. 확인이 필요합니다.")
+        else:
+            st.success("PPT가 성공적으로 생성되었습니다.")
 
         # UI에 슬라이드 내용 표시 (디버깅용, 필요시 제거)
         st.subheader("생성된 슬라이드 내용 (확인용)")
