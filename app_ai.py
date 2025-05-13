@@ -315,7 +315,7 @@ with st.container():
                 "슬라이드당 최대 줄 수", min_value=1, max_value=10, value=5, key="max_lines_slider"
             )
             max_chars_per_line_ppt_input = st.slider(
-                "PPT 한 줄당 최대 글자 수", min_value=10, min_value=100, value=18, key="max_chars_slider_ppt"
+            "PPT 한 줄당 최대 글자 수", min_value=10, value=18, key="max_chars_slider_ppt"
             )
             font_size_input = st.slider("폰트 크기", min_value=10, max_value=60, value=54, key="font_size_slider")
             similarity_threshold_input = st.slider(
