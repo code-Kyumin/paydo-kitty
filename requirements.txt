@@ -1,9 +1,4 @@
-streamlit==1.45.1
-python-pptx==1.0.2
-python-docx==1.1.2
-scikit-learn==1.6.1
-numpy==2.2.3
-gensim>=4.0.0
-transformers==4.35.2
-torch==2.7.0
-requests  # requests 라이브러리 추가
+streamlit
+python-pptx
+docx2txt
+sentence-transformers
