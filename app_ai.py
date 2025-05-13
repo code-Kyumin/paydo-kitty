@@ -16,7 +16,7 @@ import logging
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # 사용할 한국어 특화 모델
-model_name = 'snunlp/KR-SBERT-V40K-klue-nli-aug'
+model_name = 'jhgan/ko-sroberta-multitask'
 
 # 2. 함수 정의 (Word 파일 처리)
 def extract_text_from_word(file_path):
