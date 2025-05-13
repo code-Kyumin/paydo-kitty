@@ -9,7 +9,6 @@ import io
 import re
 import textwrap
 import docx
-from sentence_transformers import util
 import logging
 from transformers import AutoTokenizer, AutoModel
 import torch
