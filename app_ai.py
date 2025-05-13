@@ -9,15 +9,14 @@ import io
 import re
 import textwrap
 import docx
+from sentence_transformers import SentenceTransformer, util
 import logging
-from transformers import AutoTokenizer, AutoModel
-import torch
 
 # 로깅 설정
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # 사용할 한국어 특화 모델
-model_name = 'monologg/kobert-base-v1'  # 모델 이름 변경
+model_name = 'snunlp/KR-SBERT-V40K-klue-nli-aug'
 
 # 2. 함수 정의 (Word 파일 처리)
 def extract_text_from_word(file_path):
@@ -49,20 +48,11 @@ def calculate_text_lines(text, max_chars_per_line):
             lines += len(textwrap.wrap(paragraph, width=max_chars_per_line, break_long_words=True))
     return lines
 
-# KoBERT 임베딩 생성 함수
-@st.cache_data
-def get_kobert_embeddings(sentences):
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    model = AutoModel.from_pretrained(model_name)
-
-    embeddings = []
-    for sentence in sentences:
-        inputs = tokenizer(sentence, return_tensors="pt", truncation=True, padding=True)
-        with torch.no_grad():
-            outputs = model(**inputs)
-        # KoBERT 임베딩 추출 방법 (예시: CLS 토큰 벡터)
-        cls_token_vector = outputs.last_hidden_state[:, 0, :]
-        embeddings.append(cls_token_vector.squeeze().numpy())
+# KoSBERT 임베딩 생성 함수
+@st.cache_resource
+def get_kosbert_embeddings(sentences, model_name):
+    model = SentenceTransformer(model_name)
+    embeddings = model.encode(sentences, convert_to_tensor=True)
     return embeddings
 
 def smart_sentence_split(text):
@@ -84,7 +74,7 @@ def smart_sentence_split(text):
 
 # 4. 함수 정의 (슬라이드 분할)
 def split_text_into_slides_with_similarity(
-    text_paragraphs, max_lines_per_slide, max_chars_per_line_ppt, similarity_threshold=0.85, model_name='monologg/kobert-base-v1'
+    text_paragraphs, max_lines_per_slide, max_chars_per_line_ppt, similarity_threshold=0.85, model_name='snunlp/KR-SBERT-V40K-klue-nli-aug'
 ):
     """
     단락 및 문장 유사도를 기반으로 슬라이드를 분할합니다.
@@ -99,22 +89,17 @@ def split_text_into_slides_with_similarity(
     current_slide_lines = 0
     needs_check = False  # '확인 필요!' 표시 여부
 
-    # KoBERT 모델 및 토크나이저 로드
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    model = AutoModel.from_pretrained(model_name)
-
     all_sentences = []
     for paragraph in text_paragraphs:
         sentences = smart_sentence_split(paragraph)
         all_sentences.extend(sentences)
 
-    # 모든 문장의 KoBERT 임베딩 생성
-    all_embeddings = get_kobert_embeddings(all_sentences)
+    # 모든 문장의 KoSBERT 임베딩 생성
+    all_embeddings = get_kosbert_embeddings(all_sentences, model_name)
 
     embedding_index = 0
     for paragraph in text_paragraphs:
         sentences = smart_sentence_split(paragraph)
-        embeddings = all_embeddings[embedding_index:embedding_index + len(sentences)]
 
         for i, sentence in enumerate(sentences):
             sentence_lines = calculate_text_lines(sentence, max_chars_per_line_ppt)
@@ -149,7 +134,7 @@ def split_text_into_slides_with_similarity(
                 # 현재 슬라이드에 추가 가능한 경우
                 # 첫 번째 문장이 아니면 이전 문장과의 유사도 검사
                 if current_slide_text and i > 0:
-                    similarity = util.cos_sim(embeddings[i - 1], embeddings[i])[0][0].item()
+                    similarity = util.cos_sim(embeddings[embedding_index + i - 1].unsqueeze(0), embeddings[embedding_index + i].unsqueeze(0))[0][0].item()
                     if similarity < similarity_threshold:
                         slides.append(current_slide_text.strip())
                         split_flags.append(needs_check)
@@ -175,7 +160,7 @@ def split_text_into_slides_with_similarity(
                 current_slide_text = sentence + "\n"
                 current_slide_lines = sentence_lines + 1
                 needs_check = False
-            embedding_index += len(sentences)  # 임베딩 인덱스 업데이트
+        embedding_index += len(sentences)
 
     if current_slide_text:  # 마지막 슬라이드 추가
         slides.append(current_slide_text.strip())
@@ -308,65 +293,65 @@ similarity_threshold_input = st.slider(
     min_value=0.0, max_value=1.0, value=0.85, step=0.05,
     help="""
     문맥 유사도가 낮을 경우 슬라이드를 분리합니다.
-    값이 낮을수록 슬라이드가 짧아지고 가독성이 높아집니다 (발표용).
-    값이 높을수록 문맥이 유지되며 정보 밀도가 높아집니다 (강의용).
-    """,
-    key="similarity_threshold_input" # 이 부분은 수정되지 않도록 해줘.
-)
+    값이 낮을수록 슬라이드가 짧아지고 가독성이 높아집니다(발표용).
+       값이 높을수록 문맥이 유지되며 정보 밀도가 높아집니다 (강의용).
+       """,
+       key="similarity_threshold_input" # 이 부분은 수정되지 않도록 해줘.
+   )
 
-# 8. PPT 생성 및 다운로드
-if st.button("PPT 생성"):
-    text = ""
-    if uploaded_file is not None:
-        text_paragraphs = extract_text_from_word(uploaded_file)
-    elif text_input.strip():
-        text_paragraphs = text_input.split("\n\n")
-    else:
-        st.warning("Word 파일을 업로드하거나 텍스트를 입력하세요.")
-        st.stop()
+   # 8. PPT 생성 및 다운로드
+   if st.button("PPT 생성"):
+       text = ""
+       if uploaded_file is not None:
+           text_paragraphs = extract_text_from_word(uploaded_file)
+       elif text_input.strip():
+           text_paragraphs = text_input.split("\n\n")
+       else:
+           st.warning("Word 파일을 업로드하거나 텍스트를 입력하세요.")
+           st.stop()
 
-    with st.spinner("PPT 생성 중..."):
-        try:
-            slide_texts, split_flags, slide_numbers = split_text_into_slides_with_similarity(
-                text_paragraphs,
-                max_lines_per_slide=st.session_state.max_lines_slider,
-                max_chars_per_line_ppt=st.session_state.max_chars_slider_ppt,
-                similarity_threshold=st.session_state.similarity_threshold_input,
-                model_name=model_name
-            )
-            ppt = create_ppt(
-                slide_slide_texts, split_flags,
-                max_chars_per_line_in_ppt=st.session_state.max_chars_slider_ppt,
-                font_size=st.session_state.font_size_slider
-            )
-            divided_slide_count = sum(split_flags)  # 분할된 슬라이드 수 계산
-        except Exception as e:
-            st.error(f"오류: PPT 생성 실패: {e}")
-            st.error(f"오류 상세 내용: {str(e)}")
-            st.stop()
+       with st.spinner("PPT 생성 중..."):
+           try:
+               slide_texts, split_flags, slide_numbers = split_text_into_slides_with_similarity(
+                   text_paragraphs,
+                   max_lines_per_slide=st.session_state.max_lines_slider,
+                   max_chars_per_line_ppt=st.session_state.max_chars_slider_ppt,
+                   similarity_threshold=st.session_state.similarity_threshold_input,
+                   model_name=model_name
+               )
+               ppt = create_ppt(
+                   slide_texts, split_flags,
+                   max_chars_per_line_in_ppt=st.session_state.max_chars_slider_ppt,
+                   font_size=st.session_state.font_size_slider
+               )
+               divided_slide_count = sum(split_flags)  # 분할된 슬라이드 수 계산
+           except Exception as e:
+               st.error(f"오류: PPT 생성 실패: {e}")
+               st.error(f"오류 상세 내용: {str(e)}")
+               st.stop()
 
-    if ppt:
-        ppt_io = io.BytesIO()
-        try:
-            ppt.save(ppt_io)
-            ppt_io.seek(0)
-            ppt_io.seek(0)
-        except Exception as e:
-            st.error(f"오류: PPT 저장 실패: {e}")
-            st.error(f"오류 상세 내용: {str(e)}")
-        else:
-            st.download_button(
-                label="PPT 다운로드",
-                data=ppt_io,
-                file_name="paydo_script_ai.pptx",
-                mime="application/vnd.openxmlformats-officedocument.presentationml.presentation"
-            )
+       if ppt:
+           ppt_io = io.BytesIO()
+           try:
+               ppt.save(ppt_io)
+               ppt_io.seek(0)
+               ppt_io.seek(0)
+           except Exception as e:
+               st.error(f"오류: PPT 저장 실패: {e}")
+               st.error(f"오류 상세 내용: {str(e)}")
+           else:
+               st.download_button(
+                   label="PPT 다운로드",
+                   data=ppt_io,
+                   file_name="paydo_script_ai.pptx",
+                   mime="application/vnd.openxmlformats-officedocument.presentationml.presentation"
+               )
 
-        # 분할된 슬라이드 정보 표시 (슬라이드 수, 번호)
-        st.subheader("생성 결과")
-        st.write(f"총 {len(slide_texts)}개의 슬라이드가 생성되었습니다.")
-        if divided_slide_count > 0:
-            divided_slide_numbers = [i + 1 for i, flag in enumerate(split_flags) if flag]
-            st.warning(f"이 중 {divided_slide_count}개의 슬라이드(번호: {divided_slide_numbers})는 나뉘어 졌으므로 확인이 필요합니다.")
-        else:
-            st.success("나뉘어진 슬라이드 없이 PPT가 성공적으로 생성되었습니다.")
+           # 분할된 슬라이드 정보 표시 (슬라이드 수, 번호)
+           st.subheader("생성 결과")
+           st.write(f"총 {len(slide_texts)}개의 슬라이드가 생성되었습니다.")
+           if divided_slide_count > 0:
+               divided_slide_numbers = [i + 1 for i, flag in enumerate(split_flags) if flag]
+               st.warning(f"이 중 {divided_slide_count}개의 슬라이드(번호: {divided_slide_numbers})는 나뉘어 졌으므로 확인이 필요합니다.")
+           else:
+               st.success("나뉘어진 슬라이드 없이 PPT가 성공적으로 생성되었습니다.")
