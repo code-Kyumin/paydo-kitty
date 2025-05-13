@@ -2,6 +2,6 @@ streamlit
 python-pptx
 python-docx
 transformers
-torch
+torch==2.0.1+cpu
 konlpy
 sentence-transformers
