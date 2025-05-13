@@ -74,7 +74,7 @@ def smart_sentence_split(text):
 
 # 4. 함수 정의 (슬라이드 분할)
 def split_text_into_slides_with_similarity(
-    text_paragraphs, max_lines_per_slide, max_chars_per_line_ppt, similarity_threshold=0.85, model_name='snunlp/KR-SBERT-V40K-klue-nli-aug'
+    text_paragraphs, max_lines_per_slide, max_chars_per_line_ppt, similarity_threshold=0.85, model_name='jhgan/ko-sroberta-multitask'
 ):
     """
     단락 및 문장 유사도를 기반으로 슬라이드를 분할합니다.
