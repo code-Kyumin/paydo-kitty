@@ -11,6 +11,7 @@ import textwrap
 import docx
 from sentence_transformers import SentenceTransformer, util
 import logging
+from typing import List
 
 # 로깅 설정
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -19,7 +20,7 @@ logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %
 model_name = 'jhgan/ko-sroberta-multitask'
 
 # 2. 함수 정의 (Word 파일 처리)
-def extract_text_from_word(file_path):
+def extract_text_from_word(file_path: str) -> List[str] or None:
     """Word 파일에서 모든 텍스트를 추출하여, 단락 단위로 분리하여 리스트로 반환합니다."""
     try:
         doc = docx.Document(file_path)
@@ -37,7 +38,7 @@ def extract_text_from_word(file_path):
         return None
 
 # 3. 함수 정의 (텍스트 처리)
-def calculate_similarity(text1, text2):
+def calculate_similarity(text1: str, text2: str) -> float:
     """두 텍스트 간의 유사도를 계산합니다."""
 
     model = SentenceTransformer(model_name)
@@ -47,7 +48,7 @@ def calculate_similarity(text1, text2):
     cosine_similarity = util.pytorch_cos_sim(embedding1, embedding2)
     return cosine_similarity.item()
 
-def split_text_into_sentences(text):
+def split_text_into_sentences(text: str) -> List[str]:
     """텍스트를 문장 단위로 분리합니다."""
     # 마침표, 물음표, 느낌표 뒤에 오는 공백을 기준으로 분리
     sentences = re.split(r'(?<!\w\.\w.)(?<![A-Z][a-z]\.)(?<=\.|\?|\!)\s', text)
@@ -55,7 +56,7 @@ def split_text_into_sentences(text):
     logging.debug(f"Sentences split: {len(sentences)} sentences")
     return sentences
 
-def suggest_slide_breaks(sentences, max_chars_per_slide):
+def suggest_slide_breaks(sentences: List[str], max_chars_per_slide: int) -> List[int]:
     """문장 리스트를 입력받아 슬라이드 분할 지점을 제안합니다."""
 
     slide_breaks = []
@@ -71,7 +72,7 @@ def suggest_slide_breaks(sentences, max_chars_per_slide):
             current_slide_length += sentence_length
     return slide_breaks
 
-def create_ppt(sentences, split_flags, max_chars_per_line_in_ppt, font_size):
+def create_ppt(sentences: List[str], split_flags: List[int], max_chars_per_line_in_ppt: int, font_size: int) -> Presentation:
     """문장 리스트와 분할 플래그를 입력받아 PPTX 파일을 생성합니다."""
 
     prs = Presentation()
@@ -150,7 +151,7 @@ def main():
 
     if uploaded_file is not None:
         # 파일 처리 및 텍스트 추출
-        text_paragraphs = extract_text_from_word(uploaded_file)
+        text_paragraphs = extract_text_from_word(uploaded_file.name)
         if text_paragraphs is None:
             return  # 오류 발생 시 여기서 종료
 
