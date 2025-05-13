@@ -388,7 +388,7 @@ with input_col:
                     st.info(f"슬라이드 {i + 1}/{len(slide_texts)}{split_info} - {preview}")
 
 # 8. PPT 생성 및 다운로드
-if st.button("PPT 생성"):
+if st.button("PPT 생성", key="generate_ppt_button"):
     text = ""
     if uploaded_file is not None:
         text_paragraphs = extract_text_from_word(uploaded_file)
@@ -431,7 +431,8 @@ if st.button("PPT 생성"):
                     label="PPT 다운로드",
                     data=ppt_io,
                     file_name="paydo_script_ai.pptx",
-                    mime="application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                    mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                    key="download_ppt_button"  # 다운로드 버튼에도 고유한 key 할당
                 )
 
             # 결과 메시지
@@ -449,11 +450,12 @@ if st.button("PPT 생성"):
                 if split_flags[i]:
                     st.error(
                         f"슬라이드 {i + 1}/{len(slide_texts)} (나뉨): {slide_texts[i][:100]}...",
-                        icon="⚠️" ,
-                        
+                        icon="⚠️",
+                        key=f"split_slide_{i}"  # 각 슬라이드 정보에도 고유한 key 할당
                     )
                 else:
                     st.info(
                         f"슬라이드 {i + 1}/{len(slide_texts)}: {slide_texts[i][:100]}...",
-                        icon="ℹ️"
+                        icon="ℹ️",
+                        key=f"normal_slide_{i}" # 각 슬라이드 정보에도 고유한 key 할당
                     )
