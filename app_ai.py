@@ -297,7 +297,7 @@ def add_check_needed_shape(slide):  # 슬라이드 번호 인자 제거
     p.alignment = PP_ALIGN.CENTER
 
 # 7. Streamlit UI
-st.set_page_config(page_title="Paydo AI PPT", layout="centered")
+st.set_page_config(page_title="Paydo AI PPT", layout="wide")  # 넓은 레이아웃 설정
 st.title("🎬 AI PPT 생성기")
 
 # UI 레이아웃 분할
