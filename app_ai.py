@@ -9,14 +9,16 @@ import io
 import re
 import textwrap
 import docx
-from sentence_transformers import SentenceTransformer, util
+from sentence_transformers import util
 import logging
+from transformers import AutoTokenizer, AutoModel
+import torch
 
 # 로깅 설정
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # 사용할 한국어 특화 모델
-model_name = 'jhgan/ko-sroberta-multitask'  # 모델 이름 변경
+model_name = 'monologg/kobert-base-v1'  # 모델 이름 변경
 
 # 2. 함수 정의 (Word 파일 처리)
 def extract_text_from_word(file_path):
@@ -48,12 +50,21 @@ def calculate_text_lines(text, max_chars_per_line):
             lines += len(textwrap.wrap(paragraph, width=max_chars_per_line, break_long_words=True))
     return lines
 
-def get_sentence_embeddings(text, model_name):
-    """텍스트에서 문장 임베딩을 추출합니다."""
-    model = SentenceTransformer(model_name)
-    sentences = smart_sentence_split(text)
-    embeddings = model.encode(sentences)
-    return sentences, embeddings
+# KoBERT 임베딩 생성 함수
+@st.cache_data
+def get_kobert_embeddings(sentences):
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    model = AutoModel.from_pretrained(model_name)
+
+    embeddings = []
+    for sentence in sentences:
+        inputs = tokenizer(sentence, return_tensors="pt", truncation=True, padding=True)
+        with torch.no_grad():
+            outputs = model(**inputs)
+        # KoBERT 임베딩 추출 방법 (예시: CLS 토큰 벡터)
+        cls_token_vector = outputs.last_hidden_state[:, 0, :]
+        embeddings.append(cls_token_vector.squeeze().numpy())
+    return embeddings
 
 def smart_sentence_split(text):
     """문맥을 고려하여 자연스럽게 문장을 분할합니다."""
@@ -74,7 +85,7 @@ def smart_sentence_split(text):
 
 # 4. 함수 정의 (슬라이드 분할)
 def split_text_into_slides_with_similarity(
-    text_paragraphs, max_lines_per_slide, max_chars_per_line_ppt, similarity_threshold=0.85, model_name='jhgan/ko-sroberta-multitask'
+    text_paragraphs, max_lines_per_slide, max_chars_per_line_ppt, similarity_threshold=0.85, model_name='monologg/kobert-base-v1'
 ):
     """
     단락 및 문장 유사도를 기반으로 슬라이드를 분할합니다.
@@ -89,11 +100,22 @@ def split_text_into_slides_with_similarity(
     current_slide_lines = 0
     needs_check = False  # '확인 필요!' 표시 여부
 
-    model = SentenceTransformer(model_name)
+    # KoBERT 모델 및 토크나이저 로드
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    model = AutoModel.from_pretrained(model_name)
 
+    all_sentences = []
     for paragraph in text_paragraphs:
         sentences = smart_sentence_split(paragraph)
-        embeddings = model.encode(sentences) if sentences else []
+        all_sentences.extend(sentences)
+
+    # 모든 문장의 KoBERT 임베딩 생성
+    all_embeddings = get_kobert_embeddings(all_sentences)
+
+    embedding_index = 0
+    for paragraph in text_paragraphs:
+        sentences = smart_sentence_split(paragraph)
+        embeddings = all_embeddings[embedding_index:embedding_index + len(sentences)]
 
         for i, sentence in enumerate(sentences):
             sentence_lines = calculate_text_lines(sentence, max_chars_per_line_ppt)
@@ -154,6 +176,7 @@ def split_text_into_slides_with_similarity(
                 current_slide_text = sentence + "\n"
                 current_slide_lines = sentence_lines + 1
                 needs_check = False
+            embedding_index += len(sentences)  # 임베딩 인덱스 업데이트
 
     if current_slide_text:  # 마지막 슬라이드 추가
         slides.append(current_slide_text.strip())
@@ -313,7 +336,7 @@ if st.button("PPT 생성"):
                 model_name=model_name
             )
             ppt = create_ppt(
-                slide_texts, split_flags,
+                slide_slide_texts, split_flags,
                 max_chars_per_line_in_ppt=st.session_state.max_chars_slider_ppt,
                 font_size=st.session_state.font_size_slider
             )
@@ -332,7 +355,8 @@ if st.button("PPT 생성"):
         except Exception as e:
             st.error(f"오류: PPT 저장 실패: {e}")
             st.error(f"오류 상세 내용: {str(e)}")
-        else:st.download_button(
+        else:
+            st.download_button(
                 label="PPT 다운로드",
                 data=ppt_io,
                 file_name="paydo_script_ai.pptx",
