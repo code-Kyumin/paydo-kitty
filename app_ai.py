@@ -291,28 +291,40 @@ uploaded_file = st.file_uploader("Word 파일 업로드", type=["docx"])
 
 text_input = st.text_area("또는 텍스트 직접 입력", height=300, key="text_input_area")
 
+# session_state 초기화
+if 'max_lines_slider' not in st.session_state:
+    st.session_state.max_lines_slider = 5
+if 'max_chars_slider_ppt' not in st.session_state:
+    st.session_state.max_chars_slider_ppt = 18
+if 'font_size_slider' not in st.session_state:
+    st.session_state.font_size_slider = 54
+if 'similarity_threshold_input' not in st.session_state:
+    st.session_state.similarity_threshold_input = 0.85
+if 'min_sentences_slider' not in st.session_state:
+    st.session_state.min_sentences_slider = 2
+
 # UI 입력 슬라이더
 max_lines_per_slide_input = st.slider(
-    "슬라이드당 최대 줄 수", min_value=1, max_value=10, value=5, key="max_lines_slider"
+    "슬라이드당 최대 줄 수", min_value=1, max_value=10, value=st.session_state.max_lines_slider, key="max_lines_slider"
 )
 max_chars_per_line_ppt_input = st.slider(
-    "PPT 한 줄당 최대 글자 수", min_value=10, max_value=100, value=18, key="max_chars_slider_ppt"
+    "PPT 한 줄당 최대 글자 수", min_value=10, max_value=100, value=st.session_state.max_chars_slider_ppt, key="max_chars_slider_ppt"
 )
-font_size_input = st.slider("폰트 크기", min_value=10, max_value=60, value=54, key="font_size_slider")
+font_size_input = st.slider("폰트 크기", min_value=10, max_value=60, value=st.session_state.font_size_slider, key="font_size_slider")
 
 similarity_threshold_input = st.slider(
     "문맥 유사도 기준",
-    min_value=0.0, max_value=1.0, value=0.85, step=0.05,
+    min_value=0.0, max_value=1.0, value=st.session_state.similarity_threshold_input, step=0.05,
     help="""
     문맥 유사도가 낮을 경우 슬라이드를 분리합니다.
     값이 낮을수록 슬라이드가 짧아지고 가독성이 높아집니다 (발표용).
     값이 높을수록 문맥이 유지되며 정보 밀도가 높아집니다 (강의용).
     """,
-    key="similarity_threshold_input" # 이 부분은 수정되지 않도록 해줘.
+    key="similarity_threshold_input"
 )
 
 min_sentences_per_slide_input = st.slider(
-    "슬라이드당 최소 문장 수", min_value=1, max_value=5, value=2, key="min_sentences_slider"
+    "슬라이드당 최소 문장 수", min_value=1, max_value=5, value=st.session_state.min_sentences_slider, key="min_sentences_slider"
 )
 
 # 8. PPT 생성 및 다운로드
