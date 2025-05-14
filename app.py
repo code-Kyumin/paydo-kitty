@@ -26,7 +26,6 @@ def split_and_group_text(text, max_lines=5, max_chars=100):
     for para in paragraphs:
         if not para.strip():
             continue
-        # 문장을 줄바꿈 기준으로 자르되, 너무 길면 추가로 나눈다
         wrapped = textwrap.wrap(para, width=max_chars, replace_whitespace=False)
         for i in range(0, len(wrapped), max_lines):
             chunk = wrapped[i:i + max_lines]
@@ -64,10 +63,6 @@ def create_ppt(slide_texts):
         slide = prs.slides.add_slide(slide_layout)
         add_text_to_slide(slide, text)
 
-        progress = int((idx + 1) / len(slide_texts) * 100)
-        st.progress(progress, text=f"슬라이드 생성 중... {progress}%")
-        time.sleep(0.1)
-
     return prs
 
 
@@ -75,9 +70,13 @@ def main():
     st.set_page_config(layout="wide")
     st.title("촬영 대본용 PPT 자동 생성기")
 
-    with st.sidebar:
+    col1, col2 = st.columns([2, 1])
+
+    with col1:
         uploaded_file = st.file_uploader("Word 파일 업로드 (.docx)", type="docx")
         text_input = st.text_area("또는 직접 텍스트 입력", height=300, help="문단 단위로 작성해주세요.")
+
+    with col2:
         max_lines = st.slider("슬라이드 당 최대 줄 수", 1, 10, 5)
         max_chars = st.slider("한 줄당 최대 글자 수", 30, 120, 80)
 
@@ -98,21 +97,17 @@ def main():
         slide_texts = split_and_group_text(text, max_lines, max_chars)
         st.success(f"총 {len(slide_texts)}개의 슬라이드가 생성됩니다.")
 
-        # 미리보기
-        st.subheader("슬라이드 미리보기")
-        for idx, slide in enumerate(slide_texts[:3]):
-            st.markdown(f"**슬라이드 {idx + 1}:**")
-            st.code(slide)
-
     if st.button("PPT 생성하기"):
-        prs = create_ppt(slide_texts)
+        with st.spinner("PPT 생성 중입니다..."):
+            prs = create_ppt(slide_texts)
+            st.progress(100, text=f"PPT 생성 완료 - 총 {len(slide_texts)}개 슬라이드")
 
-        ppt_io = io.BytesIO()
-        prs.save(ppt_io)
-        ppt_io.seek(0)
+            ppt_io = io.BytesIO()
+            prs.save(ppt_io)
+            ppt_io.seek(0)
 
-        st.success("PPT 파일 생성 완료!")
-        st.download_button("📥 다운로드", data=ppt_io, file_name="촬영대본.pptx", mime="application/vnd.openxmlformats-officedocument.presentationml.presentation")
+            st.success("PPT 파일 생성 완료!")
+            st.download_button("📥 다운로드", data=ppt_io, file_name="촬영대본.pptx", mime="application/vnd.openxmlformats-officedocument.presentationml.presentation")
 
 
 if __name__ == "__main__":
