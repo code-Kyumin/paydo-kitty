@@ -10,7 +10,7 @@ import textwrap
 import docx
 from datetime import datetime
 
-# Word 파일에서 텍스트 추출하는 함수 (기존 코드와 동일)
+# Word 파일에서 텍스트 추출하는 함수
 def extract_text_from_word(file_path):
     """Word 파일에서 모든 텍스트를 추출하여 하나의 문자열로 반환합니다."""
     doc = docx.Document(file_path)
@@ -19,7 +19,7 @@ def extract_text_from_word(file_path):
         full_text.append(paragraph.text)
     return "\n".join(full_text)
 
-# 문장이 차지할 줄 수 계산 (기존 코드와 동일)
+# 문장이 차지할 줄 수 계산
 def calculate_text_lines(text, max_chars_per_line):
     lines = 0
     paragraphs = text.split('\n')
@@ -30,7 +30,7 @@ def calculate_text_lines(text, max_chars_per_line):
             lines += len(textwrap.wrap(paragraph, width=max_chars_per_line, break_long_words=True))
     return lines
 
-# 텍스트를 슬라이드로 분할 및 그룹화 (기존 코드와 동일)
+# 텍스트를 슬라이드로 분할 및 그룹화
 def split_and_group_text(text, max_lines_per_slide, max_chars_per_line_ppt):
     slides = []
     split_flags = []
@@ -105,7 +105,7 @@ def split_and_group_text(text, max_lines_per_slide, max_chars_per_line_ppt):
 
     return final_slides, final_split_flags
 
-# PPT 생성 함수 (기존 코드와 동일)
+# PPT 생성 함수
 def create_ppt(slide_texts, split_flags, max_chars_per_line_in_ppt=18, font_size=54):
     prs = Presentation()
     prs.slide_width = Inches(13.33)
@@ -123,7 +123,7 @@ def create_ppt(slide_texts, split_flags, max_chars_per_line_in_ppt=18, font_size
 
     return prs
 
-# 슬라이드에 텍스트 추가 (기존 코드와 동일)
+# 슬라이드에 텍스트 추가
 def add_text_to_slide(slide, text, font_size, alignment):
     textbox = slide.shapes.add_textbox(Inches(0.5), Inches(0.3), Inches(12.33), Inches(6.2))
     text_frame = textbox.text_frame
@@ -147,7 +147,7 @@ def add_text_to_slide(slide, text, font_size, alignment):
     text_frame.auto_size = None
     text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.TOP
 
-# 슬라이드 번호 추가 (기존 코드와 동일)
+# 슬라이드 번호 추가
 def add_slide_number(slide, current, total):
     footer_box = slide.shapes.add_textbox(Inches(11.5), Inches(7.0), Inches(1.5), Inches(0.4))
     footer_text_frame = footer_box.text_frame
@@ -159,7 +159,7 @@ def add_slide_number(slide, current, total):
     p.font.color.rgb = RGBColor(128, 128, 128)
     p.alignment = PP_ALIGN.RIGHT
 
-# '끝' 모양 추가 (기존 코드와 동일)
+# '끝' 모양 추가
 def add_end_mark(slide):
     end_shape = slide.shapes.add_shape(
         MSO_SHAPE.RECTANGLE,
@@ -181,7 +181,7 @@ def add_end_mark(slide):
     end_text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.MIDDLE
     p.alignment = PP_ALIGN.CENTER
 
-# '확인 필요!' 모양 추가 (기존 코드와 동일)
+# '확인 필요!' 모양 추가
 def add_check_needed_shape(slide):
     check_shape = slide.shapes.add_shape(
         MSO_SHAPE.RECTANGLE,
@@ -209,7 +209,7 @@ def add_check_needed_shape(slide):
 st.set_page_config(page_title="Paydo", layout="centered")
 st.title("🎬 Paydo 촬영 대본 PPT 자동 생성기")
 
-# 사이드바 설정 (기존 코드와 동일)
+# 사이드바 설정
 with st.sidebar:
     st.header("⚙️ PPT 설정")
     max_lines_per_slide_input = st.slider(
@@ -246,7 +246,7 @@ with st.container():
                 placeholder="여기에 텍스트를 입력하세요...",
                 help="텍스트를 직접 입력할 수 있습니다.",
             )
-        submit_button = st.form_submit_button("🚀 PPT 만들기", key="create_ppt_button")  # form 안에 버튼 배치
+        submit_button = st.form_submit_button("🚀 PPT 만들기")  # key 인자 제거
 
 if submit_button:  # 버튼이 눌렸을 때만 처리
     text = ""
@@ -267,7 +267,7 @@ if submit_button:  # 버튼이 눌렸을 때만 처리
     else:
         ppt_filename = f"[촬영 대본] paydo_script_{date_string}.pptx"
 
-    # PPT 생성 진행 표시 (기존 코드와 동일)
+    # PPT 생성 진행 표시
     with st.spinner("PPT 생성 중..."):
         slide_texts, split_flags = split_and_group_text(
             text,
