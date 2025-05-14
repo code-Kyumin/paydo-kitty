@@ -1,4 +1,5 @@
-# 1. 라이브러리 임포트
+# Paydo AI PPT 생성기 with KoSimCSE 적용 및 오류 수정
+
 import streamlit as st
 from pptx import Presentation
 from pptx.util import Inches, Pt
@@ -9,33 +10,32 @@ import io
 import re
 import textwrap
 import docx
+from io import BytesIO
 from sentence_transformers import SentenceTransformer, util
-import logging
 
-# 로깅 설정
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+# Streamlit 세팅
+st.set_page_config(page_title="Paydo AI PPT", layout="centered")
+st.title("🎬 AI PPT 생성기 (KoSimCSE)")
 
-# 2. 함수 정의 (Word 파일 처리)
-def extract_text_from_word(file_path):
-    """Word 파일에서 모든 텍스트를 추출하여, 단락 단위로 분리하여 리스트로 반환합니다."""
+# 모델 로딩 (한 번만)
+@st.cache_resource
+def load_model():
+    return SentenceTransformer("jhgan/ko-sbert-nli")
+
+model = load_model()
+
+# Word 파일 텍스트 추출
+def extract_text_from_word(uploaded_file):
     try:
-        doc = docx.Document(file_path)
-        paragraphs = [p.text for p in doc.paragraphs]
-        logging.debug(f"Word paragraphs extracted: {len(paragraphs)} paragraphs")
-        return paragraphs
-    except FileNotFoundError:
-        st.error(f"오류: Word 파일을 찾을 수 없습니다.")
-        return None
-    except docx.exceptions.PackageNotFoundError:
-        st.error(f"오류: Word 파일이 유효하지 않습니다.")
-        return None
+        file_bytes = BytesIO(uploaded_file.read())
+        doc = docx.Document(file_bytes)
+        return [p.text for p in doc.paragraphs if p.text.strip()]
     except Exception as e:
-        st.error(f"오류: Word 파일 처리 중 오류 발생: {e}")
+        st.error(f"Word 파일 처리 오류: {e}")
         return None
 
-# 3. 함수 정의 (텍스트 처리)
+# 텍스트 줄 수 계산
 def calculate_text_lines(text, max_chars_per_line):
-    """텍스트의 줄 수를 계산합니다."""
     lines = 0
     paragraphs = text.split('\n')
     for paragraph in paragraphs:
@@ -45,314 +45,184 @@ def calculate_text_lines(text, max_chars_per_line):
             lines += len(textwrap.wrap(paragraph, width=max_chars_per_line, break_long_words=True))
     return lines
 
-def get_sentence_embeddings(text, model_name='paraphrase-multilingual-mpnet-base-v2'):
-    """텍스트에서 문장 임베딩을 추출합니다."""
-    model = SentenceTransformer(model_name)
-    sentences = smart_sentence_split(text)
-    embeddings = model.encode(sentences)
-    return sentences, embeddings
-
+# 문장 분할
 def smart_sentence_split(text):
-    """문맥을 고려하여 자연스럽게 문장을 분할합니다."""
     paragraphs = text.split('\n')
     sentences = []
     for paragraph in paragraphs:
-        temp_sentences = re.split(r'(?<!\b\w)([.?!])(?=\s|$)', paragraph)
-        temp = []
-        for i in range(0, len(temp_sentences), 2):
-            if i + 1 < len(temp_sentences):
-                temp.append(temp_sentences[i] + temp_sentences[i + 1])
-            else:
-                temp.append(temp_sentences[i])
-        sentences.extend(temp)
-    sentences = [s.strip() for s in sentences if s.strip()]
-    logging.debug(f"Sentences split: {len(sentences)} sentences")
+        temp_sentences = re.split(r'(?<=[.!?])\s+', paragraph)
+        sentences.extend([s.strip() for s in temp_sentences if s.strip()])
     return sentences
 
-# 4. 함수 정의 (슬라이드 분할)
-def split_text_into_slides_with_similarity(
-    text_paragraphs, max_lines_per_slide, max_chars_per_line_ppt, similarity_threshold=0.85
-):
-    """
-    단락 및 문장 유사도를 기반으로 슬라이드를 분할합니다.
-    한 문장이 최대 줄 수를 초과하는 경우 슬라이드를 분리하고, 해당 슬라이드에 '확인 필요!' 표시를 합니다.
-    """
+# 슬라이드 분할 with 유사도
 
-    slides = []
-    split_flags = []
-    slide_numbers = []
-    slide_number = 1
-    current_slide_text = ""
-    current_slide_lines = 0
-    needs_check = False  # '확인 필요!' 표시 여부
+def split_text_into_slides_with_similarity(text_paragraphs, max_lines_per_slide, max_chars_per_line_ppt, model, similarity_threshold=0.85):
+    slides, split_flags, slide_number = [], [], 1
+    current_text, current_lines, needs_check = "", 0, False
 
-    model = SentenceTransformer('paraphrase-multilingual-mpnet-base-v2')
-    
     for paragraph in text_paragraphs:
         sentences = smart_sentence_split(paragraph)
-        embeddings = model.encode(sentences) if sentences else []
+        if not sentences:
+            continue
+
+        embeddings = model.encode(sentences)
 
         for i, sentence in enumerate(sentences):
             sentence_lines = calculate_text_lines(sentence, max_chars_per_line_ppt)
 
-            # 한 문장이 최대 줄 수를 초과하는 경우 슬라이드 분리
             if sentence_lines > max_lines_per_slide:
                 wrapped_lines = textwrap.wrap(sentence, width=max_chars_per_line_ppt, break_long_words=True)
-                temp_slide_text = ""
-                temp_slide_lines = 0
+                temp_text, temp_lines = "", 0
                 for line in wrapped_lines:
                     line_lines = calculate_text_lines(line, max_chars_per_line_ppt)
-                    if temp_slide_lines + line_lines + 1 <= max_lines_per_slide:
-                        temp_slide_text += line + "\n"
-                        temp_slide_lines += line_lines + 1
+                    if temp_lines + line_lines <= max_lines_per_slide:
+                        temp_text += line + "\n"
+                        temp_lines += line_lines
                     else:
-                        slides.append(temp_slide_text.strip())
-                        split_flags.append(True)  # '확인 필요!' 표시
-                        slide_numbers.append(slide_number)
-                        logging.debug(f"Slide {slide_number}: {temp_slide_text[:100]}...")
+                        slides.append(temp_text.strip())
+                        split_flags.append(True)
                         slide_number += 1
-                        temp_slide_text = line + "\n"
-                        temp_slide_lines = line_lines + 1
-                slides.append(temp_slide_text.strip())
-                split_flags.append(True)  # '확인 필요!' 표시
-                slide_numbers.append(slide_number)
-                logging.debug(f"Slide {slide_number}: {temp_slide_text[:100]}...")
-                slide_number += 1
-                current_slide_text = ""
-                current_slide_lines = 0
-                needs_check = True
-            elif current_slide_lines + sentence_lines + 1 <= max_lines_per_slide:
-                # 현재 슬라이드에 추가 가능한 경우
-                # 첫 번째 문장이 아니면 이전 문장과의 유사도 검사
-                if current_slide_text and i > 0:
-                    similarity = util.cos_sim(embeddings[i - 1], embeddings[i])[0][0].item()
-                    if similarity < similarity_threshold:
-                        slides.append(current_slide_text.strip())
+                        temp_text = line + "\n"
+                        temp_lines = line_lines
+                if temp_text:
+                    slides.append(temp_text.strip())
+                    split_flags.append(True)
+                    slide_number += 1
+                current_text, current_lines = "", 0
+                continue
+
+            if current_lines + sentence_lines <= max_lines_per_slide:
+                if current_text and i > 0:
+                    sim = util.cos_sim(embeddings[i - 1], embeddings[i])[0][0].item()
+                    if sim < similarity_threshold:
+                        slides.append(current_text.strip())
                         split_flags.append(needs_check)
-                        slide_numbers.append(slide_number)
-                        logging.debug(f"Slide {slide_number}: {current_slide_text[:100]}...")
                         slide_number += 1
-                        current_slide_text = sentence + "\n"
-                        current_slide_lines = sentence_lines + 1
+                        current_text = sentence + "\n"
+                        current_lines = sentence_lines
                         needs_check = False
                     else:
-                        current_slide_text += sentence + "\n"
-                        current_slide_lines += sentence_lines + 1
+                        current_text += sentence + "\n"
+                        current_lines += sentence_lines
                 else:
-                    current_slide_text += sentence + "\n"
-                    current_slide_lines += sentence_lines + 1
+                    current_text += sentence + "\n"
+                    current_lines += sentence_lines
             else:
-                # 현재 슬라이드에 추가 불가능한 경우
-                slides.append(current_slide_text.strip())
+                slides.append(current_text.strip())
                 split_flags.append(needs_check)
-                slide_numbers.append(slide_number)
-                logging.debug(f"Slide {slide_number}: {current_slide_text[:100]}...")
                 slide_number += 1
-                current_slide_text = sentence + "\n"
-                current_slide_lines = sentence_lines + 1
+                current_text = sentence + "\n"
+                current_lines = sentence_lines
                 needs_check = False
 
-    if current_slide_text:  # 마지막 슬라이드 추가
-        slides.append(current_slide_text.strip())
+    if current_text:
+        slides.append(current_text.strip())
         split_flags.append(needs_check)
-        slide_numbers.append(slide_number)
-        logging.debug(f"Slide {slide_number}: {current_slide_text[:100]}...")
 
-    return slides, split_flags, slide_numbers
+    return slides, split_flags
 
-# 5. 함수 정의 (PPT 생성 및 슬라이드 조작)
+# PPT 생성 함수
 def create_ppt(slide_texts, split_flags, max_chars_per_line_in_ppt=18, font_size=54):
-    """슬라이드 텍스트를 기반으로 PPT를 생성하고, '확인 필요!' 표시 등을 추가합니다."""
-
     prs = Presentation()
     prs.slide_width = Inches(13.33)
     prs.slide_height = Inches(7.5)
-    total_slides = len(slide_texts)
 
     for i, text in enumerate(slide_texts):
-        try:
-            logging.debug(f"슬라이드 {i+1}에 텍스트 추가")
-            slide = prs.slides.add_slide(prs.slide_layouts[6])
-            add_text_to_slide(slide, text, font_size, PP_ALIGN.CENTER, max_chars_per_line_in_ppt)
-            if split_flags[i]:
-                add_check_needed_shape(slide)  # 슬라이드 번호 인자 제거
-            if i == total_slides - 1:
-                add_end_mark(slide)
-        except Exception as e:
-            st.error(f"오류: 슬라이드 생성 실패 (슬라이드 {i+1}): {e}")
-            return None
+        slide = prs.slides.add_slide(prs.slide_layouts[6])
+        add_text_to_slide(slide, text, font_size, PP_ALIGN.CENTER, max_chars_per_line_in_ppt)
+        if split_flags[i]:
+            add_check_needed_shape(slide)
+        if i == len(slide_texts) - 1:
+            add_end_mark(slide)
 
     return prs
 
-# 6. 함수 정의 (슬라이드 요소 추가)
+# 텍스트 추가
+
 def add_text_to_slide(slide, text, font_size, alignment, max_chars_per_line):
-    """슬라이드에 텍스트를 추가하고, 폰트, 크기, 정렬 등을 설정합니다."""
+    textbox = slide.shapes.add_textbox(Inches(0.5), Inches(0.3), Inches(12.33), Inches(6.2))
+    text_frame = textbox.text_frame
+    text_frame.clear()
+    text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.TOP
+    text_frame.word_wrap = True
 
-    try:
-        textbox = slide.shapes.add_textbox(Inches(0.5), Inches(0.3), Inches(12.33), Inches(6.2))
-        text_frame = textbox.text_frame
-        text_frame.clear()
-        text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.TOP
-        text_frame.word_wrap = True
+    wrapped_lines = textwrap.wrap(text, width=max_chars_per_line, break_long_words=True)
+    for line in wrapped_lines:
+        p = text_frame.add_paragraph()
+        p.text = line
+        p.font.size = Pt(font_size)
+        p.font.name = 'Noto Color Emoji'
+        p.font.bold = True
+        p.font.color.rgb = RGBColor(0, 0, 0)
+        p.alignment = alignment
+        p.vertical_anchor = MSO_VERTICAL_ANCHOR.TOP
 
-        wrapped_lines = textwrap.wrap(text, width=max_chars_per_line, break_long_words=True)
-        for line in wrapped_lines:
-            p = text_frame.add_paragraph()
-            p.text = line
-            p.font.size = Pt(font_size)
-            p.font.name = 'Noto Color Emoji'
-            p.font.bold = True
-            p.font.color.rgb = RGBColor(0, 0, 0)
-            p.alignment = alignment
-            p.vertical_anchor = MSO_VERTICAL_ANCHOR.TOP
+    text_frame.auto_size = None
 
-        text_frame.auto_size = None
-        logging.debug(f"텍스트 추가됨")
-    except Exception as e:
-        st.error(f"오류: 슬라이드에 텍스트 추가 중 오류 발생: {e}")
-        raise
+# 슬라이드 요소들
 
-# def add_slide_number(slide, current, total):  # 슬라이드 번호 제거
-#     """슬라이드에 슬라이드 번호를 추가합니다."""
-#     footer_box = slide.shapes.add_textbox(Inches(11.5), Inches(7.0), Inches(1.5), Inches(0.4))
-#     footer_text_frame = footer_box.text_frame
-#     footer_text_frame.clear()
-#     p = footer_text_frame.paragraphs[0]
-#     p.text = f"{current} / {total}"
-#     p.font.size = Pt(18)
-#     p.font.name = '맑은 고딕'
-#     p.font.color.rgb = RGBColor(128, 128, 128)
-#     p.alignment = PP_ALIGN.RIGHT
-
-def add_end_mark(slide):
-    """마지막 슬라이드에 '끝' 표시를 추가합니다."""
-
-    end_shape = slide.shapes.add_shape(
-        MSO_SHAPE.RECTANGLE,
-        Inches(10),
-        Inches(6),
-        Inches(2),
-        Inches(1)
-    )
-    end_shape.fill.solid()
-    end_shape.fill.fore_color.rgb = RGBColor(255, 0, 0)
-    end_shape.line.color.rgb = RGBColor(0, 0, 0)
-
-    end_text_frame = end_shape.text_frame
-    end_text_frame.clear()
-    p = end_text_frame.paragraphs[0]
-    p.text = "끝"
-    p.font.size = Pt(36)
-    p.font.color.rgb = RGBColor(255, 255, 255)
-    end_text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.MIDDLE
-    p.alignment = PP_ALIGN.CENTER
-
-def add_check_needed_shape(slide):  # 슬라이드 번호 인자 제거
-    """확인 필요한 슬라이드에 '확인 필요!' 상자를 추가합니다."""
-
-    check_shape = slide.shapes.add_shape(
-        MSO_SHAPE.RECTANGLE,
-        Inches(0.5),
-        Inches(0.3),
-        Inches(2.5),
-        Inches(0.5)
-    )
-    check_shape.fill.solid()
-    check_shape.fill.fore_color.rgb = RGBColor(255, 255, 0)
-    check_shape.line.color.rgb = RGBColor(0, 0, 0)
-
-    check_text_frame = check_shape.text_frame
-    check_text_frame.clear()
-    p = check_text_frame.paragraphs[0]
+def add_check_needed_shape(slide):
+    shape = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(0.5), Inches(0.3), Inches(2.5), Inches(0.5))
+    shape.fill.solid()
+    shape.fill.fore_color.rgb = RGBColor(255, 255, 0)
+    shape.line.color.rgb = RGBColor(0, 0, 0)
+    p = shape.text_frame.paragraphs[0]
     p.text = "확인 필요!"
     p.font.size = Pt(18)
     p.font.bold = True
     p.font.color.rgb = RGBColor(0, 0, 0)
-    text_frame = check_shape.text_frame
-    text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.MIDDLE
+    shape.text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.MIDDLE
     p.alignment = PP_ALIGN.CENTER
 
-# 7. Streamlit UI
-st.set_page_config(page_title="Paydo AI PPT", layout="centered")
-st.title("🎬 AI PPT 생성기")
+def add_end_mark(slide):
+    shape = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(10), Inches(6), Inches(2), Inches(1))
+    shape.fill.solid()
+    shape.fill.fore_color.rgb = RGBColor(255, 0, 0)
+    shape.line.color.rgb = RGBColor(0, 0, 0)
+    p = shape.text_frame.paragraphs[0]
+    p.text = "끝"
+    p.font.size = Pt(36)
+    p.font.color.rgb = RGBColor(255, 255, 255)
+    shape.text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.MIDDLE
+    p.alignment = PP_ALIGN.CENTER
 
-# Word 파일 업로드
-uploaded_file = st.file_uploader("Word 파일 업로드", type=["docx"], key="file_uploader")
+# UI 입력
+uploaded_file = st.file_uploader("📄 Word 파일 업로드", type=["docx"])
+text_input = st.text_area("또는 텍스트 직접 입력:", height=300)
 
-text_input = st.text_area("또는 텍스트 직접 입력", height=300, key="text_input_area")
+max_lines = st.slider("슬라이드당 최대 줄 수", 1, 10, 5)
+max_chars = st.slider("한 줄당 최대 글자 수", 10, 100, 18)
+font_size = st.slider("폰트 크기", 10, 60, 54)
+sim_threshold = st.slider("문맥 유사도 기준", 0.0, 1.0, 0.85, step=0.05)
 
-# UI 입력 슬라이더
-max_lines_per_slide_input = st.slider(
-    "슬라이드당 최대 줄 수", min_value=1, max_value=10, value=5, key="max_lines_slider"
-)
-max_chars_per_line_ppt_input = st.slider(
-    "PPT 한 줄당 최대 글자 수", min_value=10, max_value=100, value=18, key="max_chars_slider_ppt"
-)
-font_size_input = st.slider("폰트 크기", min_value=10, max_value=60, value=54, key="font_size_slider")
-
-similarity_threshold_input = st.slider(
-    "문맥 유사도 기준",
-    min_value=0.0, max_value=1.0, value=0.85, step=0.05,
-    help="""
-    문맥 유사도가 낮을 경우 슬라이드를 분리합니다.
-    값이 낮을수록 슬라이드가 짧아지고 가독성이 높아집니다 (발표용).
-    값이 높을수록 문맥이 유지되며 정보 밀도가 높아집니다 (강의용).
-    """,
-    key="similarity_threshold_input" # 이 부분은 수정되지 않도록 해줘.
-)
-
-# 8. PPT 생성 및 다운로드
-if st.button("PPT 생성", key="generate_ppt_button"):
-    text = ""
-    text_paragraphs = []  # text_paragraphs 초기화
-    if uploaded_file is not None:
-        text_paragraphs = extract_text_from_word(uploaded_file)
+# 버튼 클릭 시 실행
+if st.button("🚀 PPT 생성"):
+    paragraphs = []
+    if uploaded_file:
+        paragraphs = extract_text_from_word(uploaded_file)
     elif text_input.strip():
-        text_paragraphs = text_input.split("\n\n")
+        paragraphs = [p.strip() for p in text_input.split("\n\n") if p.strip()]
     else:
         st.warning("Word 파일을 업로드하거나 텍스트를 입력하세요.")
         st.stop()
 
-    with st.spinner("PPT 생성 중..."):
-        try:
-            slide_texts, split_flags, slide_numbers = split_text_into_slides_with_similarity(
-                text_paragraphs,
-                max_lines_per_slide=st.session_state.max_lines_slider,
-                max_chars_per_line_ppt=st.session_state.max_chars_slider_ppt,
-                similarity_threshold=st.session_state.similarity_threshold_input
-            )
-            divided_slide_count = sum(split_flags)  # 분할된 슬라이드 수 계산
-        except Exception as e:
-            st.error(f"오류: PPT 생성 실패: {e}")
-            st.error(f"오류 상세 내용: {str(e)}")
-            st.stop()
+    if not paragraphs:
+        st.error("유효한 텍스트가 없습니다.")
+        st.stop()
 
-    if ppt:
-        ppt_io = io.BytesIO()
-        try:
+    with st.spinner("PPT 생성 중..."):
+        slides, flags = split_text_into_slides_with_similarity(
+            paragraphs, max_lines, max_chars, model, similarity_threshold=sim_threshold
+        )
+        ppt = create_ppt(slides, flags, max_chars, font_size)
+
+        if ppt:
+            ppt_io = io.BytesIO()
             ppt.save(ppt_io)
             ppt_io.seek(0)
-        except Exception as e:
-            st.error(f"오류: PPT 저장 실패: {e}")
-            st.error(f"오류 상세 내용: {str(e)}")
-        else:
-            st.download_button(
-                label="PPT 다운로드",
-                data=ppt_io,
-                file_name="paydo_script_ai.pptx",
-                mime="application/vnd.openxmlformats-officedocument.presentationml.presentation"
-            )
-
-        # 분할된 슬라이드 수 알림
-        if divided_slide_count > 0:
-            st.warning(f"총 {len(slide_texts)}개의 슬라이드 중 {divided_slide_count}개의 슬라이드가 나뉘어 졌습니다. 확인이 필요합니다.")
-        else:
-            st.success("PPT가 성공적으로 생성되었습니다.")
-
-        # UI에 슬라이드 내용 표시 (디버깅용, 필요시 제거)
-        st.subheader("생성된 슬라이드 내용 (확인용)")
-        for i, text in enumerate(slide_texts):
-            st.write(f"**슬라이드 {i + 1}:**")
-            st.write(text)
-            if split_flags[i]:
-                st.write("  ⚠️ **이 슬라이드는 나뉘어 졌으므로 확인이 필요합니다.**")
+            st.download_button("📥 PPT 다운로드", ppt_io, "paydo_script_ai.pptx",
+                               mime="application/vnd.openxmlformats-officedocument.presentationml.presentation")
+            st.success(f"총 {len(slides)}개의 슬라이드가 생성되었습니다.")
+            if any(flags):
+                flagged = [i+1 for i, f in enumerate(flags) if f]
+                st.warning(f"⚠️ 확인이 필요한 슬라이드: {flagged}")
