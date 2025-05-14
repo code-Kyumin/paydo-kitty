@@ -29,7 +29,10 @@ def extract_text_from_word(uploaded_file):
     try:
         file_bytes = BytesIO(uploaded_file.read())
         doc = docx.Document(file_bytes)
-        return [p.text for p in doc.paragraphs if p.text.strip()]
+        paragraphs = [p.text for p in doc.paragraphs if p.text.strip()]
+        if not paragraphs:
+            raise ValueError("Word 파일이 비어 있습니다.")  # 파일이 비어있는 경우 예외 발생
+        return paragraphs
     except Exception as e:
         st.error(f"Word 파일 처리 오류: {e}")
         return None
@@ -60,17 +63,18 @@ def is_incomplete(sentence):
     )
 
 # 슬라이드 분할 with 의미 단위 + 문맥 유사도
-
-def split_text_into_slides_with_similarity(text_paragraphs, max_lines_per_slide, max_chars_per_line_ppt, model, similarity_threshold=0.85):
-    slides, split_flags, slide_number = [], [], 1
-    current_text, current_lines, needs_check = "", 0, False
+def split_text_into_slides_with_similarity(text_paragraphs, max_lines_per_slide, max_chars_per_line_ppt, similarity_threshold=0.85):
+    slides, split_flags = [], []
+    slide_number = 1
+    current_text = ""
+    current_lines = 0
+    needs_check = False
 
     for paragraph in text_paragraphs:
         sentences = smart_sentence_split(paragraph)
         if not sentences:
             continue
 
-        # 불완전 문장 병합 처리
         merged_sentences = []
         buffer = ""
         for sentence in sentences:
@@ -94,7 +98,6 @@ def split_text_into_slides_with_similarity(text_paragraphs, max_lines_per_slide,
             sentence = merged_sentences[i]
             sentence_lines = calculate_text_lines(sentence, max_chars_per_line_ppt)
 
-            # 다음 문장과 병합을 시도 (짧은 문장 방지)
             if sentence_lines <= 2 and i + 1 < len(merged_sentences):
                 next_sentence = merged_sentences[i + 1]
                 merged = sentence + " " + next_sentence
@@ -106,7 +109,8 @@ def split_text_into_slides_with_similarity(text_paragraphs, max_lines_per_slide,
 
             if sentence_lines > max_lines_per_slide:
                 wrapped_lines = textwrap.wrap(sentence, width=max_chars_per_line_ppt, break_long_words=True)
-                temp_text, temp_lines = "", 0
+                temp_text = ""
+                temp_lines = 0
                 for line in wrapped_lines:
                     line_lines = calculate_text_lines(line, max_chars_per_line_ppt)
                     if temp_lines + line_lines <= max_lines_per_slide:
@@ -122,7 +126,8 @@ def split_text_into_slides_with_similarity(text_paragraphs, max_lines_per_slide,
                     slides.append(temp_text.strip())
                     split_flags.append(True)
                     slide_number += 1
-                current_text, current_lines = "", 0
+                current_text = ""
+                current_lines = 0
                 i += 1
                 continue
 
@@ -145,6 +150,104 @@ def split_text_into_slides_with_similarity(text_paragraphs, max_lines_per_slide,
     return slides, split_flags
 
 # [create_ppt, add_text_to_slide, add_check_needed_shape, add_end_mark 함수는 이전 정의대로 유지]
+def create_ppt(slide_texts, split_flags, max_chars_per_line_in_ppt=18, font_size=54):
+    """슬라이드 텍스트를 기반으로 PPT를 생성하고, '확인 필요!' 표시 등을 추가합니다."""
+
+    prs = Presentation()
+    prs.slide_width = Inches(13.33)
+    prs.slide_height = Inches(7.5)
+    total_slides = len(slide_texts)
+
+    for i, text in enumerate(slide_texts):
+        try:
+            logging.debug(f"슬라이드 {i+1}에 텍스트 추가")
+            slide = prs.slides.add_slide(prs.slide_layouts[6])
+            add_text_to_slide(slide, text, font_size, PP_ALIGN.CENTER, max_chars_per_line_in_ppt)
+            if split_flags[i]:
+                add_check_needed_shape(slide)  # 슬라이드 번호 인자 제거
+            if i == total_slides - 1:
+                add_end_mark(slide)
+        except Exception as e:
+            st.error(f"오류: 슬라이드 생성 실패 (슬라이드 {i+1}): {e}")
+            return None
+
+    return prs
+
+def add_text_to_slide(slide, text, font_size, alignment, max_chars_per_line):
+    """슬라이드에 텍스트를 추가하고, 폰트, 크기, 정렬 등을 설정합니다."""
+
+    try:
+        textbox = slide.shapes.add_textbox(Inches(0.5), Inches(0.3), Inches(12.33), Inches(6.2))
+        text_frame = textbox.text_frame
+        text_frame.clear()
+        text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.TOP
+        text_frame.word_wrap = True
+
+        wrapped_lines = textwrap.wrap(text, width=max_chars_per_line, break_long_words=True)
+        for line in wrapped_lines:
+            p = text_frame.add_paragraph()
+            p.text = line
+            p.font.size = Pt(font_size)
+            p.font.name = 'Noto Color Emoji'
+            p.font.bold = True
+            p.font.color.rgb = RGBColor(0, 0, 0)
+            p.alignment = alignment
+            p.vertical_anchor = MSO_VERTICAL_ANCHOR.TOP
+
+        text_frame.auto_size = None
+        logging.debug(f"텍스트 추가됨")
+    except Exception as e:
+        st.error(f"오류: 슬라이드에 텍스트 추가 중 오류 발생: {e}")
+        raise
+
+def add_end_mark(slide):
+    """마지막 슬라이드에 '끝' 표시를 추가합니다."""
+
+    end_shape = slide.shapes.add_shape(
+        MSO_SHAPE.RECTANGLE,
+        Inches(10),
+        Inches(6),
+        Inches(2),
+        Inches(1)
+    )
+    end_shape.fill.solid()
+    end_shape.fill.fore_color.rgb = RGBColor(255, 0, 0)
+    end_shape.line.color.rgb = RGBColor(0, 0, 0)
+
+    end_text_frame = end_shape.text_frame
+    end_text_frame.clear()
+    p = end_text_frame.paragraphs[0]
+    p.text = "끝"
+    p.font.size = Pt(36)
+    p.font.color.rgb = RGBColor(255, 255, 255)
+    end_text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.MIDDLE
+    p.alignment = PP_ALIGN.CENTER
+
+def add_check_needed_shape(slide):
+    """확인 필요한 슬라이드에 '확인 필요!' 상자를 추가합니다."""
+
+    check_shape = slide.shapes.add_shape(
+        MSO_SHAPE.RECTANGLE,
+        Inches(0.5),
+        Inches(0.3),
+        Inches(2.5),
+        Inches(0.5)
+    )
+    check_shape.fill.solid()
+    check_shape.fill.fore_color.rgb = RGBColor(255, 255, 0)
+    check_shape.line.color.rgb = RGBColor(0, 0, 0)
+
+    check_text_frame = check_shape.text_frame
+    check_text_frame.clear()
+    p = check_text_frame.paragraphs[0]
+    p.text = "확인 필요!"
+    p.font.size = Pt(18)
+    p.font.bold = True
+    p.font.color.rgb = RGBColor(0, 0, 0)
+    text_frame = check_shape.text_frame
+    text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.MIDDLE
+    p.alignment = PP_ALIGN.CENTER
+
 # UI 입력
 uploaded_file = st.file_uploader("📄 Word 파일 업로드", type=["docx"])
 text_input = st.text_area("또는 텍스트 직접 입력:", height=300)
@@ -170,7 +273,7 @@ if st.button("🚀 PPT 생성"):
 
     with st.spinner("PPT 생성 중..."):
         slides, flags = split_text_into_slides_with_similarity(
-            paragraphs, max_lines, max_chars, model, similarity_threshold=sim_threshold
+            paragraphs, max_lines, max_chars, sim_threshold
         )
         ppt = create_ppt(slides, flags, max_chars, font_size)
 
