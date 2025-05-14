@@ -258,11 +258,14 @@ if submit_button:  # 버튼이 눌렸을 때만 처리
         st.error("Word 파일을 업로드하거나 텍스트를 입력하세요.")
         st.stop()
 
-    # 파일 제목 설정
+   # 파일 제목 설정
     now = datetime.now()
     date_string = now.strftime("%y%m%d")  # YYMMDD 형식
     if uploaded_file:
         original_filename = uploaded_file.name.split(".")[0]  # 확장자 제거
+        max_filename_length = 50  # 최대 파일명 길이 (조절 가능)
+        if len(original_filename) > max_filename_length:
+            original_filename = original_filename[:max_filename_length]  # 앞부분만 사용
         ppt_filename = f"[촬영 대본] {original_filename}_{date_string}.pptx"
     else:
         ppt_filename = f"[촬영 대본] paydo_script_{date_string}.pptx"
