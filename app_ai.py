@@ -121,6 +121,66 @@ def split_text_into_slides_with_similarity(text_paragraphs, max_lines_per_slide,
         split_flags.append(needs_check)
 
     return slides, split_flags
+def create_ppt(slide_texts, split_flags, max_chars_per_line_in_ppt=18, font_size=54):
+    prs = Presentation()
+    prs.slide_width = Inches(13.33)
+    prs.slide_height = Inches(7.5)
+    total_slides = len(slide_texts)
+
+    for i, text in enumerate(slide_texts):
+        slide = prs.slides.add_slide(prs.slide_layouts[6])
+        add_text_to_slide(slide, text, font_size, PP_ALIGN.CENTER, max_chars_per_line_in_ppt)
+        if split_flags[i]:
+            add_check_needed_shape(slide)
+        if i == total_slides - 1:
+            add_end_mark(slide)
+    return prs
+
+def add_text_to_slide(slide, text, font_size, alignment, max_chars_per_line):
+    textbox = slide.shapes.add_textbox(Inches(0.5), Inches(0.3), Inches(12.33), Inches(6.2))
+    text_frame = textbox.text_frame
+    text_frame.clear()
+    text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.TOP
+    text_frame.word_wrap = True
+
+    wrapped_lines = textwrap.wrap(text, width=max_chars_per_line, break_long_words=True)
+    for line in wrapped_lines:
+        p = text_frame.add_paragraph()
+        p.text = line
+        p.font.size = Pt(font_size)
+        p.font.name = 'Noto Color Emoji'
+        p.font.bold = True
+        p.font.color.rgb = RGBColor(0, 0, 0)
+        p.alignment = alignment
+        p.vertical_anchor = MSO_VERTICAL_ANCHOR.TOP
+
+    text_frame.auto_size = None
+
+def add_check_needed_shape(slide):
+    shape = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(0.5), Inches(0.3), Inches(2.5), Inches(0.5))
+    shape.fill.solid()
+    shape.fill.fore_color.rgb = RGBColor(255, 255, 0)
+    shape.line.color.rgb = RGBColor(0, 0, 0)
+    p = shape.text_frame.paragraphs[0]
+    p.text = "확인 필요!"
+    p.font.size = Pt(18)
+    p.font.bold = True
+    p.font.color.rgb = RGBColor(0, 0, 0)
+    shape.text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.MIDDLE
+    p.alignment = PP_ALIGN.CENTER
+
+def add_end_mark(slide):
+    shape = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(10), Inches(6), Inches(2), Inches(1))
+    shape.fill.solid()
+    shape.fill.fore_color.rgb = RGBColor(255, 0, 0)
+    shape.line.color.rgb = RGBColor(0, 0, 0)
+    p = shape.text_frame.paragraphs[0]
+    p.text = "끝"
+    p.font.size = Pt(36)
+    p.font.color.rgb = RGBColor(255, 255, 255)
+    shape.text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.MIDDLE
+    p.alignment = PP_ALIGN.CENTER
+
 
 # PPT 생성 함수 (이하 동일)
 # [생략된 함수들은 기존과 동일하게 유지됩니다]
