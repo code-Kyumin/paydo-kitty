@@ -8,8 +8,9 @@ import io
 import re
 import textwrap
 import docx
+from datetime import datetime
 
-# Word 파일에서 텍스트 추출하는 함수
+# Word 파일에서 텍스트 추출하는 함수 (기존 코드와 동일)
 def extract_text_from_word(file_path):
     """Word 파일에서 모든 텍스트를 추출하여 하나의 문자열로 반환합니다."""
     doc = docx.Document(file_path)
@@ -18,7 +19,7 @@ def extract_text_from_word(file_path):
         full_text.append(paragraph.text)
     return "\n".join(full_text)
 
-# 문장이 차지할 줄 수 계산
+# 문장이 차지할 줄 수 계산 (기존 코드와 동일)
 def calculate_text_lines(text, max_chars_per_line):
     lines = 0
     paragraphs = text.split('\n')
@@ -29,7 +30,7 @@ def calculate_text_lines(text, max_chars_per_line):
             lines += len(textwrap.wrap(paragraph, width=max_chars_per_line, break_long_words=True))
     return lines
 
-# 텍스트를 슬라이드로 분할 및 그룹화
+# 텍스트를 슬라이드로 분할 및 그룹화 (기존 코드와 동일)
 def split_and_group_text(text, max_lines_per_slide, max_chars_per_line_ppt):
     slides = []
     split_flags = []
@@ -44,10 +45,10 @@ def split_and_group_text(text, max_lines_per_slide, max_chars_per_line_ppt):
             split_flags.append(False)
         elif calculate_text_lines(slides[-1] + "\n" + line, max_chars_per_line_ppt) <= max_lines_per_slide:
             slides[-1] += "\n" + line
-            split_flags[-1] = False # 마지막 슬라이드는 분할되지 않음
+            split_flags[-1] = False
         else:
             slides.append(line)
-            split_flags.append(False) # 새로운 슬라이드
+            split_flags.append(False)
 
     final_slides = []
     final_split_flags = []
@@ -104,7 +105,7 @@ def split_and_group_text(text, max_lines_per_slide, max_chars_per_line_ppt):
 
     return final_slides, final_split_flags
 
-# PPT 생성 함수
+# PPT 생성 함수 (기존 코드와 동일)
 def create_ppt(slide_texts, split_flags, max_chars_per_line_in_ppt=18, font_size=54):
     prs = Presentation()
     prs.slide_width = Inches(13.33)
@@ -122,6 +123,7 @@ def create_ppt(slide_texts, split_flags, max_chars_per_line_in_ppt=18, font_size
 
     return prs
 
+# 슬라이드에 텍스트 추가 (기존 코드와 동일)
 def add_text_to_slide(slide, text, font_size, alignment):
     textbox = slide.shapes.add_textbox(Inches(0.5), Inches(0.3), Inches(12.33), Inches(6.2))
     text_frame = textbox.text_frame
@@ -145,7 +147,7 @@ def add_text_to_slide(slide, text, font_size, alignment):
     text_frame.auto_size = None
     text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.TOP
 
-
+# 슬라이드 번호 추가 (기존 코드와 동일)
 def add_slide_number(slide, current, total):
     footer_box = slide.shapes.add_textbox(Inches(11.5), Inches(7.0), Inches(1.5), Inches(0.4))
     footer_text_frame = footer_box.text_frame
@@ -157,6 +159,7 @@ def add_slide_number(slide, current, total):
     p.font.color.rgb = RGBColor(128, 128, 128)
     p.alignment = PP_ALIGN.RIGHT
 
+# '끝' 모양 추가 (기존 코드와 동일)
 def add_end_mark(slide):
     end_shape = slide.shapes.add_shape(
         MSO_SHAPE.RECTANGLE,
@@ -178,6 +181,7 @@ def add_end_mark(slide):
     end_text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.MIDDLE
     p.alignment = PP_ALIGN.CENTER
 
+# '확인 필요!' 모양 추가 (기존 코드와 동일)
 def add_check_needed_shape(slide):
     check_shape = slide.shapes.add_shape(
         MSO_SHAPE.RECTANGLE,
@@ -205,30 +209,46 @@ def add_check_needed_shape(slide):
 st.set_page_config(page_title="Paydo", layout="centered")
 st.title("🎬 Paydo 촬영 대본 PPT 자동 생성기")
 
-# 사이드바 설정
+# 사이드바 설정 (기존 코드와 동일)
 with st.sidebar:
-    st.header("⚙️ PPT 설정")  # 사이드바 제목
+    st.header("⚙️ PPT 설정")
     max_lines_per_slide_input = st.slider(
-        "📄 슬라이드당 최대 줄 수:", min_value=1, max_value=10, value=5
+        "📄 슬라이드당 최대 줄 수:", min_value=1, max_value=10, value=5, key="max_lines_slider"
     )
     st.caption("한 슬라이드에 들어갈 최대 줄 수를 설정합니다.")
     max_chars_per_line_ppt_input = st.slider(
-        "📏 한 줄당 최대 글자 수 (PPT 표시):", min_value=3, max_value=30, value=18
+        "📏 한 줄당 최대 글자 수 (PPT 표시):", min_value=3, max_value=30, value=18, key="max_chars_slider_ppt"
     )
     st.caption("PPT에 표시될 텍스트의 한 줄당 최대 글자 수를 설정합니다.")
     font_size_input = st.slider(
-        "🅰️ 폰트 크기:", min_value=10, max_value=60, value=54
+        "🅰️ 폰트 크기:", min_value=10, max_value=60, value=54, key="font_size_slider"
     )
     st.caption("PPT 텍스트의 폰트 크기를 설정합니다.")
 
-# 파일 업로드 및 텍스트 입력 섹션
+# 메인 화면 디자인 개선
 with st.container():
-    uploaded_file = st.file_uploader("📝 Word 파일 업로드 (docx)", type=["docx"])
-    text_input = st.text_area(
-        "또는 텍스트 직접 입력:", height=200, placeholder="여기에 텍스트를 입력하세요..."
+    st.markdown("### 📝 촬영 대본 입력")
+    st.markdown(
+        """
+    Word 파일(.docx)을 업로드하거나, 텍스트를 직접 입력하세요.
+    """
     )
+    with st.form(key="input_form"):  # 입력 영역을 form으로 묶음
+        col1, col2 = st.columns(2)  # 2개의 컬럼으로 나눔
+        with col1:
+            uploaded_file = st.file_uploader(
+                "Word 파일 업로드", type=["docx"], help="docx 형식의 파일만 지원됩니다."
+            )
+        with col2:
+            text_input = st.text_area(
+                "텍스트 직접 입력",
+                height=200,
+                placeholder="여기에 텍스트를 입력하세요...",
+                help="텍스트를 직접 입력할 수 있습니다.",
+            )
+        submit_button = st.form_submit_button("🚀 PPT 만들기", key="create_ppt_button")  # form 안에 버튼 배치
 
-if st.button("🚀 PPT 만들기"):
+if submit_button:  # 버튼이 눌렸을 때만 처리
     text = ""
     if uploaded_file is not None:
         text = extract_text_from_word(uploaded_file)
@@ -238,7 +258,16 @@ if st.button("🚀 PPT 만들기"):
         st.error("Word 파일을 업로드하거나 텍스트를 입력하세요.")
         st.stop()
 
-    # PPT 생성 진행 표시
+    # 파일 제목 설정
+    now = datetime.now()
+    date_string = now.strftime("%y%m%d")  # YYMMDD 형식
+    if uploaded_file:
+        original_filename = uploaded_file.name.split(".")[0]  # 확장자 제거
+        ppt_filename = f"[촬영 대본] {original_filename}_{date_string}.pptx"
+    else:
+        ppt_filename = f"[촬영 대본] paydo_script_{date_string}.pptx"
+
+    # PPT 생성 진행 표시 (기존 코드와 동일)
     with st.spinner("PPT 생성 중..."):
         slide_texts, split_flags = split_and_group_text(
             text,
@@ -261,8 +290,9 @@ if st.button("🚀 PPT 만들기"):
         st.download_button(
             label="📥 PPT 다운로드",
             data=ppt_io,
-            file_name="paydo_script.pptx",
+            file_name=ppt_filename,  # 동적으로 생성된 파일 이름 사용
             mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            key="download_button"
         )
         if any(split_flags):
             split_slide_numbers = [i + 1 for i, flag in enumerate(split_flags) if flag]
