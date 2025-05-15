@@ -213,7 +213,7 @@ st.title("🎬 Paydo 촬영 대본 PPT 자동 생성기")
 with st.sidebar:
     st.header("⚙️ PPT 설정")
     max_lines_per_slide_input = st.slider(
-        "📄 슬라이드당 최대 줄 수:", min_value=1, max_value=10, value=5, key="max_lines_slider"
+        "📄 슬라이드당 최대 줄 수:", min_value=1, max_value=10, value=4, key="max_lines_slider"
     )
     st.caption("한 슬라이드에 들어갈 최대 줄 수를 설정합니다.")
     max_chars_per_line_ppt_input = st.slider(
