@@ -11,13 +11,10 @@ import docx
 from datetime import datetime
 
 # Word 파일에서 텍스트 추출하는 함수 (기존 코드와 동일)
-def extract_text_from_word(file_path):
-    """Word 파일에서 모든 텍스트를 추출하여 하나의 문자열로 반환합니다."""
-    doc = docx.Document(file_path)
-    full_text = []
-    for paragraph in doc.paragraphs:
-        full_text.append(paragraph.text)
-    return "\n".join(full_text)
+def extract_text_from_word(file_like_object):
+    """업로드된 파일 객체에서 텍스트를 추출합니다."""
+    doc = docx.Document(file_like_object)
+    return "\n".join([para.text for para in doc.paragraphs if para.text.strip()])
 
 # 문장이 차지할 줄 수 계산 (기존 코드와 동일)
 def calculate_text_lines(text, max_chars_per_line):
@@ -250,21 +247,29 @@ with st.container():
 
 if submit_button:  # 버튼이 눌렸을 때만 처리
     text = ""
-    if uploaded_file is not None:
-        text = extract_text_from_word(uploaded_file)
-    elif text_input.strip():
+    from io import BytesIO  # 파일 상단에 이미 import 되어 있다면 생략
+
+if uploaded_file is not None:
+    try:
+        file_bytes = BytesIO(uploaded_file.read())  # 핵심: 강제 래핑
+        text = extract_text_from_word(file_bytes)
+    except Exception as e:
+        st.error(f"📄 파일을 읽는 중 오류가 발생했습니다: {e}")
+        st.stop()
+
+elif text_input.strip():
         text = text_input
-    else:
+else:
         st.error("Word 파일을 업로드하거나 텍스트를 입력하세요.")
         st.stop()
 
     # 파일 제목 설정 (수정됨)
-    now = datetime.now()
-    date_string = now.strftime("%y%m%d")  # YYMMDD 형식
-    ppt_filename = f"[촬영 대본] paydo_script_{date_string}.pptx"  # 파일 이름 통일
+now = datetime.now()
+date_string = now.strftime("%y%m%d")  # YYMMDD 형식
+ppt_filename = f"[촬영 대본] paydo_script_{date_string}.pptx"  # 파일 이름 통일
 
     # PPT 생성 진행 표시 (기존 코드와 동일)
-    with st.spinner("PPT 생성 중..."):
+with st.spinner("PPT 생성 중..."):
         slide_texts, split_flags = split_and_group_text(
             text,
             max_lines_per_slide=max_lines_per_slide_input,
@@ -277,7 +282,7 @@ if submit_button:  # 버튼이 눌렸을 때만 처리
             font_size=font_size_input,
         )
 
-    if ppt:
+if ppt:
         ppt_io = io.BytesIO()
         ppt.save(ppt_io)
         ppt_io.seek(0)
@@ -295,5 +300,5 @@ if submit_button:  # 버튼이 눌렸을 때만 처리
             st.warning(
                 f"❗️ 일부 슬라이드({split_slide_numbers})는 한 문장이 너무 길어 분할되었습니다. PPT를 확인하여 가독성을 검토해주세요."
             )
-    else:
+else:
         st.error("❌ PPT 생성에 실패했습니다.")
