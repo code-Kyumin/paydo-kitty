@@ -10,10 +10,10 @@ import textwrap
 import docx
 from datetime import datetime
 
-# Word 파일에서 텍스트 추출하는 함수 (수정됨)
-def extract_text_from_word(uploaded_file):
-    """업로드된 Word 파일 객체에서 모든 텍스트를 추출하여 하나의 문자열로 반환합니다."""
-    doc = docx.Document(uploaded_file)  # 파일 경로 대신 파일 객체 사용
+# Word 파일에서 텍스트 추출하는 함수 (기존 코드와 동일)
+def extract_text_from_word(file_path):
+    """Word 파일에서 모든 텍스트를 추출하여 하나의 문자열로 반환합니다."""
+    doc = docx.Document(file_path)
     full_text = []
     for paragraph in doc.paragraphs:
         full_text.append(paragraph.text)
@@ -213,7 +213,7 @@ st.title("🎬 Paydo 촬영 대본 PPT 자동 생성기")
 with st.sidebar:
     st.header("⚙️ PPT 설정")
     max_lines_per_slide_input = st.slider(
-        "📄 슬라이드당 최대 줄 수:", min_value=1, max_value=10, value=4, key="max_lines_slider"
+        "📄 슬라이드당 최대 줄 수:", min_value=1, max_value=10, value=5, key="max_lines_slider"
     )
     st.caption("한 슬라이드에 들어갈 최대 줄 수를 설정합니다.")
     max_chars_per_line_ppt_input = st.slider(
