@@ -10,10 +10,10 @@ import textwrap
 import docx
 from datetime import datetime
 
-# Word 파일에서 텍스트 추출하는 함수 (기존 코드와 동일)
-def extract_text_from_word(file_path):
-    """Word 파일에서 모든 텍스트를 추출하여 하나의 문자열로 반환합니다."""
-    doc = docx.Document(file_path)
+# Word 파일에서 텍스트 추출하는 함수 (수정됨)
+def extract_text_from_word(uploaded_file):
+    """업로드된 Word 파일 객체에서 모든 텍스트를 추출하여 하나의 문자열로 반환합니다."""
+    doc = docx.Document(uploaded_file)  # 파일 경로 대신 파일 객체 사용
     full_text = []
     for paragraph in doc.paragraphs:
         full_text.append(paragraph.text)
