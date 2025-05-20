@@ -10,13 +10,13 @@ import textwrap
 import docx
 from datetime import datetime
 
-# Word 파일에서 텍스트 추출하는 함수 (기존 코드와 동일)
+# Word 파일에서 텍스트 추출하는 함수
 def extract_text_from_word(file_like_object):
     """업로드된 파일 객체에서 텍스트를 추출합니다."""
     doc = docx.Document(file_like_object)
     return "\n".join([para.text for para in doc.paragraphs if para.text.strip()])
 
-# 문장이 차지할 줄 수 계산 (기존 코드와 동일)
+# 문장이 차지할 줄 수 계산
 def calculate_text_lines(text, max_chars_per_line):
     lines = 0
     paragraphs = text.split('\n')
@@ -27,7 +27,7 @@ def calculate_text_lines(text, max_chars_per_line):
             lines += len(textwrap.wrap(paragraph, width=max_chars_per_line, break_long_words=True))
     return lines
 
-# 텍스트를 슬라이드로 분할 및 그룹화 (기존 코드와 동일)
+# 텍스트를 슬라이드로 분할 및 그룹화
 def split_and_group_text(text, max_lines_per_slide, max_chars_per_line_ppt):
     slides = []
     split_flags = []
@@ -102,7 +102,7 @@ def split_and_group_text(text, max_lines_per_slide, max_chars_per_line_ppt):
 
     return final_slides, final_split_flags
 
-# PPT 생성 함수 (기존 코드와 동일)
+# PPT 생성 함수
 def create_ppt(slide_texts, split_flags, max_chars_per_line_in_ppt=18, font_size=54):
     prs = Presentation()
     prs.slide_width = Inches(13.33)
@@ -120,7 +120,7 @@ def create_ppt(slide_texts, split_flags, max_chars_per_line_in_ppt=18, font_size
 
     return prs
 
-# 슬라이드에 텍스트 추가 (기존 코드와 동일)
+# 슬라이드에 텍스트 추가
 def add_text_to_slide(slide, text, font_size, alignment):
     textbox = slide.shapes.add_textbox(Inches(0.5), Inches(0.3), Inches(12.33), Inches(6.2))
     text_frame = textbox.text_frame
@@ -144,7 +144,7 @@ def add_text_to_slide(slide, text, font_size, alignment):
     text_frame.auto_size = None
     text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.TOP
 
-# 슬라이드 번호 추가 (기존 코드와 동일)
+# 슬라이드 번호 추가
 def add_slide_number(slide, current, total):
     footer_box = slide.shapes.add_textbox(Inches(11.5), Inches(7.0), Inches(1.5), Inches(0.4))
     footer_text_frame = footer_box.text_frame
@@ -156,7 +156,7 @@ def add_slide_number(slide, current, total):
     p.font.color.rgb = RGBColor(128, 128, 128)
     p.alignment = PP_ALIGN.RIGHT
 
-# '끝' 모양 추가 (기존 코드와 동일)
+# '끝' 모양 추가
 def add_end_mark(slide):
     end_shape = slide.shapes.add_shape(
         MSO_SHAPE.RECTANGLE,
@@ -178,7 +178,7 @@ def add_end_mark(slide):
     end_text_frame.vertical_anchor = MSO_VERTICAL_ANCHOR.MIDDLE
     p.alignment = PP_ALIGN.CENTER
 
-# '확인 필요!' 모양 추가 (기존 코드와 동일)
+# '확인 필요!' 모양 추가
 def add_check_needed_shape(slide):
     check_shape = slide.shapes.add_shape(
         MSO_SHAPE.RECTANGLE,
@@ -206,7 +206,7 @@ def add_check_needed_shape(slide):
 st.set_page_config(page_title="Paydo", layout="centered")
 st.title("🎬 Paydo 촬영 대본 PPT 자동 생성기")
 
-# 사이드바 설정 (기존 코드와 동일)
+# 사이드바 설정
 with st.sidebar:
     st.header("⚙️ PPT 설정")
     max_lines_per_slide_input = st.slider(
@@ -222,7 +222,7 @@ with st.sidebar:
     )
     st.caption("PPT 텍스트의 폰트 크기를 설정합니다.")
 
-# 메인 화면 디자인 개선 (기존 코드와 동일)
+# 메인 화면 디자인 개선
 with st.container():
     st.markdown("### 📝 촬영 대본 입력")
     st.markdown(
@@ -234,7 +234,9 @@ with st.container():
         col1, col2 = st.columns(2)  # 2개의 컬럼으로 나눔
         with col1:
             uploaded_file = st.file_uploader(
-                "Word 파일 업로드", type=["docx"], help="docx 형식의 파일만 지원됩니다."
+                "Word 파일 업로드",
+                type=["docx"],
+                help="docx 형식의 파일만 지원됩니다. **파일명은 영어와 숫자, 특수문자(-,_)로만 구성해주세요.**"
             )
         with col2:
             text_input = st.text_area(
@@ -243,7 +245,7 @@ with st.container():
                 placeholder="여기에 텍스트를 입력하세요...",
                 help="텍스트를 직접 입력할 수 있습니다.",
             )
-        submit_button = st.form_submit_button("🚀 PPT 만들기")  # key 인자 제거
+        submit_button = st.form_submit_button("🚀 PPT 만들기")
 
 if submit_button:
     from io import BytesIO
@@ -255,7 +257,16 @@ if submit_button:
             file_bytes = BytesIO(uploaded_file.read())  # Streamlit Cloud 안정 처리
             text = extract_text_from_word(file_bytes)
         except Exception as e:
-            st.error(f"📄 Word 파일을 읽는 중 오류가 발생했습니다: {e}")
+            st.error(f"""
+            📄 워드 파일을 읽는 중 오류가 발생했습니다.
+            **오류 메시지:** {e}
+
+            **해결 방법:**
+            * **파일명에 한글, 특수문자(하이픈(-), 언더바(_) 제외)가 포함되어 있지 않은지 확인해주세요.**
+                Streamlit Cloud 환경에서는 파일명에 유니코드 문자가 포함될 경우 업로드에 문제가 발생할 수 있습니다.
+                파일명을 영어와 숫자, 하이픈(-), 언더바(_)로만 구성하여 다시 시도해주세요 (예: `script_20240520.docx`).
+            * 파일이 손상되었을 수도 있으니, 다른 워드 파일로도 시도해보세요.
+            """)
             st.stop()
     elif text_input.strip():
         text = text_input
