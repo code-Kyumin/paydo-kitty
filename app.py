@@ -236,7 +236,7 @@ with st.container():
             uploaded_file = st.file_uploader(
                 "Word 파일 업로드",
                 type=["docx"],
-                help="docx 형식의 파일만 지원됩니다. **파일명은 영어와 숫자, 특수문자(-,_)로만 구성해주세요.**"
+                help="docx 형식의 파일만 지원됩니다. **업로드 오류 발생 시 파일명은 영어와 숫자, 특수문자(-,_)로 수정해서 업로드 해주세요.**"
             )
         with col2:
             text_input = st.text_area(
